@@ -229,14 +229,14 @@
       el.innerHTML = `<div class="flex flex-col gap-3">${data.results.map(r => `
         <div class="bg-bg border border-border rounded px-4 py-3">
           <div class="flex justify-between text-xs text-muted mb-1.5">
-            <span class="${TAG}">${r.metadata?.filename || r.metadata?.source || 'doc'}</span>
+            <span class="${TAG}">${esc(r.metadata?.filename || r.metadata?.source || 'doc')}</span>
             <span class="text-accent2 font-semibold">score ${r.score}</span>
           </div>
           <div class="text-sm leading-relaxed">${esc(r.text)}</div>
           ${r.full_text ? `<div class="mt-2 pt-2 border-t border-border text-[0.8rem] text-muted whitespace-pre-wrap max-h-[200px] overflow-y-auto">${esc(r.full_text)}</div>` : ''}
         </div>`).join('')}</div>`;
     } catch (e) {
-      el.innerHTML = `<span class="text-danger text-[0.8rem]">${e.message}</span>`;
+      el.innerHTML = `<span class="text-danger text-[0.8rem]">${esc(e.message)}</span>`;
     }
   }
 
@@ -268,7 +268,7 @@
       status.innerHTML = `<span class="${STATUS_OK}">Ingested — ${r.chunk_count} chunks · id: ${r.doc_id}</span>`;
       loadDocs();
     } catch (e) {
-      status.innerHTML = `<span class="${STATUS_ERR}">${e.message}</span>`;
+      status.innerHTML = `<span class="${STATUS_ERR}">${esc(e.message)}</span>`;
     }
   }
 
@@ -280,12 +280,12 @@
       if (!documents.length) { el.innerHTML = '<span class="text-muted text-[0.8rem]">No documents yet.</span>'; return; }
       el.innerHTML = `<div class="flex flex-col gap-1.5">${documents.map((d, i) => `
         <div class="flex justify-between items-center text-[0.8rem] py-1 ${i < documents.length - 1 ? 'border-b border-border' : ''}">
-          <span class="font-mono text-accent cursor-pointer hover:underline" onclick="fetchDoc('${d.doc_id}')">${d.doc_id.slice(0,12)}…</span>
-          <span class="text-muted text-xs">${d.filename || d.source || ''}</span>
-          <button class="${BTN_DANGER}" onclick="delDoc('${d.doc_id}')">delete</button>
+          <span class="font-mono text-accent cursor-pointer hover:underline" onclick="fetchDoc(${JSON.stringify(d.doc_id)})">${esc(d.doc_id.slice(0,12))}…</span>
+          <span class="text-muted text-xs">${esc(d.filename || d.source || '')}</span>
+          <button class="${BTN_DANGER}" onclick="delDoc(${JSON.stringify(d.doc_id)})">delete</button>
         </div>`).join('')}</div>`;
     } catch (e) {
-      el.innerHTML = `<span class="text-danger text-[0.8rem]">${e.message}</span>`;
+      el.innerHTML = `<span class="text-danger text-[0.8rem]">${esc(e.message)}</span>`;
     }
   }
 
@@ -301,7 +301,7 @@
   }
 
   function esc(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
   // ── Settings ──────────────────────────────────────────────────────────────
@@ -350,7 +350,7 @@
       await api('POST', '/settings', body);
       statusEl.innerHTML = `<span class="${STATUS_OK}">Saved.</span>`;
     } catch (e) {
-      statusEl.innerHTML = `<span class="${STATUS_ERR}">${e.message}</span>`;
+      statusEl.innerHTML = `<span class="${STATUS_ERR}">${esc(e.message)}</span>`;
     }
   }
 
