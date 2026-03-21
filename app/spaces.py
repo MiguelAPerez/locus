@@ -77,7 +77,15 @@ async def load_document(space: str, doc_id: str) -> dict | None:
     return {"doc_id": doc_id, "text": text, "metadata": metadata}
 
 
+async def save_original_file(space: str, doc_id: str, content: bytes, filename: str):
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
+    path = os.path.join(_assets_dir(space), f"{doc_id}.{ext}")
+    async with aiofiles.open(path, "wb") as f:
+        await f.write(content)
+
+
 def delete_document_files(space: str, doc_id: str):
-    for path in [_raw_path(space, doc_id), _meta_path(space, doc_id)]:
-        if os.path.exists(path):
-            os.remove(path)
+    import glob
+    pattern = os.path.join(_assets_dir(space), f"{doc_id}.*")
+    for path in glob.glob(pattern):
+        os.remove(path)

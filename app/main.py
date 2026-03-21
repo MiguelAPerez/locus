@@ -8,7 +8,7 @@ import json
 import time
 import os
 
-from . import embeddings, store, spaces, config
+from . import embeddings, store, spaces, config, extractors
 
 app = FastAPI(title="Locus", description="Semantic dataspace manager", version="1.0.0")
 
@@ -112,12 +112,24 @@ async def ingest_document(
         raise HTTPException(400, "Provide either 'text' or a 'file'")
 
     filename = None
+    file_content = None
     if file:
-        content = await file.read()
-        if not content:
+        file_content = await file.read()
+        if not file_content:
             raise HTTPException(400, f"Uploaded file '{file.filename}' is empty")
-        text = content.decode("utf-8", errors="replace")
+        max_bytes = config.get_max_upload_bytes()
+        if len(file_content) > max_bytes:
+            raise HTTPException(413, f"File '{file.filename}' exceeds the {max_bytes // (1024*1024)} MB limit")
         filename = file.filename
+        try:
+            text = await extractors.extract_text(file_content, filename, file.content_type or "")
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except Exception as e:
+            raise HTTPException(502, f"Extraction failed for '{filename}': {e}")
+
+    if not text:
+        raise HTTPException(400, "No text could be extracted from the provided input")
 
     doc_id = spaces.new_doc_id()
     chunks = spaces.chunk_text(text)
@@ -127,11 +139,14 @@ async def ingest_document(
     except Exception as e:
         raise HTTPException(502, f"Ollama embedding failed: {e}")
 
-    meta = {"doc_id": doc_id, "source": source or "manual", "filename": filename or ""}
+    doc_type = extractors.doc_type(filename or "", (file.content_type or "") if file else "")
+    meta = {"doc_id": doc_id, "source": source or "manual", "filename": filename or "", "doc_type": doc_type}
     chunk_metas = [{**meta, "chunk_index": i} for i in range(len(chunks))]
 
     store.upsert(space, doc_id, chunks, vectors, chunk_metas)
     await spaces.save_document(space, doc_id, text, meta)
+    if file_content and doc_type != "text":
+        await spaces.save_original_file(space, doc_id, file_content, filename)
 
     return IngestResponse(doc_id=doc_id, space=space, chunk_count=len(chunks))
 

@@ -7,6 +7,8 @@
 
 Locus pairs with any [Ollama](https://ollama.com) instance for local embeddings, stores vectors in [ChromaDB](https://www.trychroma.com/), and keeps raw assets on disk. No cloud dependencies.
 
+![Locus UI](docs/imgs/page.png)
+
 ---
 
 ## Features
@@ -14,7 +16,10 @@ Locus pairs with any [Ollama](https://ollama.com) instance for local embeddings,
 - **Dataspaces** — isolated namespaces, each with its own vector index and file store
 - **Semantic search** — cosine similarity over Ollama embeddings
 - **Full document fetch** — retrieve the original ingested text by ID
-- **File or text ingest** — POST plain text or upload `.txt`, `.md`, `.csv`, `.json` files
+- **File or text ingest** — POST plain text or upload `.txt`, `.md`, `.csv`, `.json`, `.pdf`, images, and audio files
+- **PDF extraction** — text layer extracted via pypdf
+- **Image OCR** — text extracted from images via Tesseract
+- **Audio transcription** — speech-to-text via Whisper (runs locally)
 - **Web UI** — dark-themed single-page interface served at `/`
 - **Curl-friendly** — every operation is a plain HTTP call, no SDK required
 - **Containerized** — single Docker image, connects to your existing Ollama instance
@@ -75,6 +80,7 @@ All configuration is via environment variables (or `.env`):
 | `OLLAMA_URL` | `http://host.docker.internal:11434` | URL of your Ollama instance |
 | `EMBED_MODEL` | `nomic-embed-text` | Model name for embeddings |
 | `DATA_DIR` | `/data` | Root directory for spaces and assets |
+| `MAX_UPLOAD_MB` | `100` | Maximum file upload size in megabytes |
 | `LOCUS_PORT` | `8000` | Host port (Docker only) |
 
 Make sure the embedding model is already pulled in your Ollama instance:
@@ -193,6 +199,7 @@ The release workflow builds and pushes the Docker image to `ghcr.io/miguelaperez
 ├── app/
 │   ├── main.py          # FastAPI app and all routes
 │   ├── embeddings.py    # Ollama embedding client
+│   ├── extractors.py    # PDF, image OCR, and audio transcription
 │   ├── store.py         # ChromaDB vector store wrapper
 │   ├── spaces.py        # File I/O, chunking, space management
 │   └── static/

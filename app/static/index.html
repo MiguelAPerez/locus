@@ -200,7 +200,7 @@
           </div>
           <div class="text-muted text-xs">or upload a file:</div>
           <div class="flex gap-2 items-center">
-            <input type="file" id="ingestFile" accept=".txt,.md,.markdown,.csv,.json,text/*" class="flex-1 text-[0.8rem] text-muted" />
+            <input type="file" id="ingestFile" accept=".txt,.md,.markdown,.csv,.json,.pdf,.png,.jpg,.jpeg,.gif,.webp,.tiff,.bmp,.mp3,.wav,.ogg,.m4a,.flac,.webm,text/*,application/pdf,image/*,audio/*" class="flex-1 text-[0.8rem] text-muted" />
             <button class="${BTN_PRIMARY}" onclick="doUpload()">Upload</button>
           </div>
           <div id="ingestStatus"></div>
@@ -256,13 +256,16 @@
     if (!file) return;
     const fd = new FormData();
     fd.append('file', file);
-    await submitIngest(fd);
+    const ext = file.name.split('.').pop().toLowerCase();
+    const hints = { pdf: 'extracting PDF text', mp3: 'transcribing audio', wav: 'transcribing audio', ogg: 'transcribing audio', m4a: 'transcribing audio', flac: 'transcribing audio', webm: 'transcribing audio' };
+    await submitIngest(fd, hints[ext] || null);
     document.getElementById('ingestFile').value = '';
   }
 
-  async function submitIngest(fd) {
+  async function submitIngest(fd, hint = null) {
     const status = document.getElementById('ingestStatus');
-    status.innerHTML = '<span class="text-muted text-[0.8rem]">Ingesting…</span>';
+    const hintText = hint ? ` <span class="text-muted">(${hint} — this may take a moment)</span>` : '';
+    status.innerHTML = `<span class="text-muted text-[0.8rem]">Ingesting…${hintText}</span>`;
     try {
       const r = await api('POST', `/spaces/${currentSpace}/documents`, fd);
       status.innerHTML = `<span class="${STATUS_OK}">Ingested — ${r.chunk_count} chunks · id: ${r.doc_id}</span>`;
@@ -278,10 +281,11 @@
     try {
       const { documents } = await api('GET', `/spaces/${currentSpace}/documents`);
       if (!documents.length) { el.innerHTML = '<span class="text-muted text-[0.8rem]">No documents yet.</span>'; return; }
+      const typeLabel = { pdf: 'PDF', image: 'IMG', audio: 'AUD' };
       el.innerHTML = `<div class="flex flex-col gap-1.5">${documents.map((d, i) => `
         <div class="flex justify-between items-center text-[0.8rem] py-1 ${i < documents.length - 1 ? 'border-b border-border' : ''}">
           <span class="font-mono text-accent cursor-pointer hover:underline" onclick="fetchDoc(${JSON.stringify(d.doc_id)})">${esc(d.doc_id.slice(0,12))}…</span>
-          <span class="text-muted text-xs">${esc(d.filename || d.source || '')}</span>
+          <span class="text-muted text-xs flex items-center gap-1.5">${typeLabel[d.doc_type] ? `<span class="${TAG}">${typeLabel[d.doc_type]}</span>` : ''}${esc(d.filename || d.source || '')}</span>
           <button class="${BTN_DANGER}" onclick="delDoc(${JSON.stringify(d.doc_id)})">delete</button>
         </div>`).join('')}</div>`;
     } catch (e) {

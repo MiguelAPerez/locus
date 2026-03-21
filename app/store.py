@@ -65,5 +65,5 @@ def list_documents(space: str) -> list[dict]:
     for meta in results["metadatas"]:
         doc_id = meta.get("doc_id")
         if doc_id and doc_id not in seen:
-            seen[doc_id] = {"doc_id": doc_id, "filename": meta.get("filename"), "source": meta.get("source")}
+            seen[doc_id] = {"doc_id": doc_id, "filename": meta.get("filename"), "source": meta.get("source"), "doc_type": meta.get("doc_type", "text")}
     return list(seen.values())
