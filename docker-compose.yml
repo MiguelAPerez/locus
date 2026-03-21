@@ -1,0 +1,34 @@
+services:
+  locus:
+    build: .
+    container_name: locus
+    ports:
+      - "${LOCUS_PORT:-8000}:8000"
+    volumes:
+      - locus_data:/data
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - DATA_DIR=/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: locus-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  locus_data:
+  ollama_models:
