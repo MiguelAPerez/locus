@@ -114,6 +114,8 @@ async def ingest_document(
     filename = None
     if file:
         content = await file.read()
+        if not content:
+            raise HTTPException(400, f"Uploaded file '{file.filename}' is empty")
         text = content.decode("utf-8", errors="replace")
         filename = file.filename
 

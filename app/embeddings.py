@@ -4,7 +4,7 @@ from . import config
 
 
 async def embed(text: str) -> list[float]:
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=60.0, verify=False) as client:
         resp = await client.post(
             f"{config.get_ollama_url()}/api/embeddings",
             json={"model": config.get_embed_model(), "prompt": text},

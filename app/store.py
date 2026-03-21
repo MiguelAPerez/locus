@@ -4,10 +4,14 @@ import os
 DATA_DIR = os.getenv("DATA_DIR", "./data")
 
 
+_clients: dict[str, chromadb.ClientAPI] = {}
+
 def _client(space: str) -> chromadb.ClientAPI:
-    path = os.path.join(DATA_DIR, space, "chroma")
-    os.makedirs(path, exist_ok=True)
-    return chromadb.PersistentClient(path=path)
+    if space not in _clients:
+        path = os.path.join(DATA_DIR, space, "chroma")
+        os.makedirs(path, exist_ok=True)
+        _clients[space] = chromadb.PersistentClient(path=path)
+    return _clients[space]
 
 
 def get_or_create_collection(space: str) -> chromadb.Collection:
@@ -51,6 +55,7 @@ def delete_space(space: str):
         client.delete_collection(space)
     except Exception:
         pass
+    _clients.pop(space, None)
 
 
 def list_documents(space: str) -> list[dict]:
