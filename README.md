@@ -1,5 +1,8 @@
 # Locus
 
+[![CI](https://github.com/MiguelAPerez/locus/actions/workflows/ci.yml/badge.svg)](https://github.com/MiguelAPerez/locus/actions/workflows/ci.yml)
+[![Release](https://github.com/MiguelAPerez/locus/actions/workflows/release.yml/badge.svg)](https://github.com/MiguelAPerez/locus/actions/workflows/release.yml)
+
 **Semantic dataspace manager.** Create isolated spaces, ingest documents, and search them with natural language — all through a simple REST API or the built-in web UI.
 
 Locus pairs with any [Ollama](https://ollama.com) instance for local embeddings, stores vectors in [ChromaDB](https://www.trychroma.com/), and keeps raw assets on disk. No cloud dependencies.
@@ -20,7 +23,27 @@ Locus pairs with any [Ollama](https://ollama.com) instance for local embeddings,
 
 ## Quick start
 
-### Docker (recommended)
+### Pull from registry (recommended)
+
+Pre-built images are published to the GitHub Container Registry on every release:
+
+```bash
+docker pull ghcr.io/miguelaperez/locus:latest
+```
+
+```bash
+cp .env.example .env
+# Edit .env to point OLLAMA_URL at your Ollama instance
+
+docker run -d \
+  --name locus \
+  -p 8000:8000 \
+  --env-file .env \
+  -v locus_data:/data \
+  ghcr.io/miguelaperez/locus:latest
+```
+
+### Build locally
 
 ```bash
 cp .env.example .env
@@ -139,6 +162,32 @@ curl -s -X DELETE $BASE/spaces/research | jq
 
 ---
 
+## Development
+
+### Running tests
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+pytest tests/ -v --cov=app
+```
+
+### Releases
+
+Releases are driven by [Commitizen](https://commitizen-tools.github.io/commitizen/) using conventional commits.
+
+```bash
+# bump version, update CHANGELOG, create tag
+cz bump
+
+# push the tag to trigger the release workflow
+git push origin main --tags
+```
+
+The release workflow builds and pushes the Docker image to `ghcr.io/miguelaperez/locus:<tag>` and `ghcr.io/miguelaperez/locus:latest`.
+
+---
+
 ## Project structure
 
 ```
@@ -150,12 +199,18 @@ curl -s -X DELETE $BASE/spaces/research | jq
 │   ├── spaces.py        # File I/O, chunking, space management
 │   └── static/
 │       └── index.html   # Web UI
+├── tests/               # pytest test suite
+├── .github/workflows/
+│   ├── ci.yml           # Run tests on push / PR
+│   └── release.yml      # Build & push Docker image on tag
 ├── docs/
 │   └── architecture.md  # System design and data flow
 ├── Dockerfile
 ├── docker-compose.yml
-├── .env.example
-└── requirements.txt
+├── pyproject.toml       # Commitizen config & version
+├── requirements.txt
+├── requirements-dev.txt
+└── .env.example
 ```
 
 ---
