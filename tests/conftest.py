@@ -12,6 +12,7 @@ def tmp_data_dir(tmp_path, monkeypatch):
     import app.store as store_mod
     monkeypatch.setattr(spaces_mod, "DATA_DIR", str(tmp_path))
     monkeypatch.setattr(store_mod, "DATA_DIR", str(tmp_path))
+    store_mod._clients.clear()
     return tmp_path
 
 
