@@ -5,299 +5,106 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Locus</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231a1d27'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%236c8cf5' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23a78bfa'/%3E%3Cline x1='16' y1='4' x2='16' y2='9' stroke='%236c8cf5' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='16' y1='23' x2='16' y2='28' stroke='%236c8cf5' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='4' y1='16' x2='9' y2='16' stroke='%236c8cf5' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='23' y1='16' x2='28' y2='16' stroke='%236c8cf5' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --border: #2a2d3a;
-      --accent: #6c8cf5;
-      --accent2: #a78bfa;
-      --text: #e2e4ed;
-      --muted: #6b7280;
-      --success: #34d399;
-      --danger: #f87171;
-      --radius: 8px;
-    }
-
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    header {
-      padding: 1rem 2rem;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.05em; }
-    header h1 span { color: var(--accent); }
-    header .tagline { color: var(--muted); font-size: 0.8rem; }
-
-    .layout {
-      display: grid;
-      grid-template-columns: 220px 1fr;
-      flex: 1;
-    }
-
-    aside {
-      border-right: 1px solid var(--border);
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    aside h2 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.25rem; }
-
-    .space-list { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; }
-
-    .space-item {
-      padding: 0.4rem 0.75rem;
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-size: 0.875rem;
-      border: 1px solid transparent;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .space-item:hover { background: var(--surface); }
-    .space-item.active { background: var(--surface); border-color: var(--accent); color: var(--accent); }
-    .space-item .del { opacity: 0; font-size: 0.75rem; color: var(--danger); cursor: pointer; }
-    .space-item:hover .del { opacity: 1; }
-
-    .new-space { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-    .new-space input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.35rem 0.6rem; color: var(--text); font-size: 0.8rem; outline: none; }
-    .new-space input:focus { border-color: var(--accent); }
-
-    button {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: var(--radius);
-      padding: 0.35rem 0.75rem;
-      font-size: 0.8rem;
-      cursor: pointer;
-      font-weight: 600;
-      transition: opacity 0.15s;
-    }
-    button:hover { opacity: 0.85; }
-    button.secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); font-weight: 400; }
-    button.danger { background: var(--danger); }
-
-    main { padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1.5rem; overflow-y: auto; }
-
-    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: var(--muted); gap: 0.5rem; padding: 4rem; text-align: center; }
-    .empty-state .icon { font-size: 2.5rem; }
-
-    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
-    .panel h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.75rem; }
-
-    .search-row { display: flex; gap: 0.5rem; }
-    .search-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5rem 0.75rem; color: var(--text); font-size: 0.875rem; outline: none; }
-    .search-row input:focus { border-color: var(--accent); }
-
-    .ingest-area { display: flex; flex-direction: column; gap: 0.5rem; }
-    .ingest-area textarea {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.6rem 0.75rem;
-      color: var(--text);
-      font-size: 0.875rem;
-      resize: vertical;
-      min-height: 90px;
-      font-family: inherit;
-      outline: none;
-    }
-    .ingest-area textarea:focus { border-color: var(--accent); }
-    .ingest-row { display: flex; gap: 0.5rem; align-items: center; }
-    .ingest-row input[type=text] { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.4rem 0.6rem; color: var(--text); font-size: 0.8rem; outline: none; }
-    .ingest-row input:focus { border-color: var(--accent); }
-
-    .results { display: flex; flex-direction: column; gap: 0.75rem; }
-    .result-card {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.75rem 1rem;
-    }
-    .result-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.4rem; }
-    .result-score { color: var(--accent2); font-weight: 600; }
-    .result-text { font-size: 0.875rem; line-height: 1.5; }
-    .result-full { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
-
-    .docs-list { display: flex; flex-direction: column; gap: 0.4rem; }
-    .doc-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
-    .doc-row:last-child { border-bottom: none; }
-    .doc-id { font-family: monospace; color: var(--accent); cursor: pointer; }
-    .doc-id:hover { text-decoration: underline; }
-
-    .status { font-size: 0.8rem; padding: 0.4rem 0.75rem; border-radius: var(--radius); }
-    .status.ok { background: #0d2e22; color: var(--success); }
-    .status.err { background: #2e0d0d; color: var(--danger); }
-
-    .tag { display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--border); color: var(--muted); }
-
-    /* header buttons */
-    .settings-btn { margin-left: auto; background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.3rem 0.6rem; font-size: 1rem; }
-    .settings-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
-    .logs-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.3rem 0.7rem; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; }
-    .logs-btn:hover { border-color: var(--accent2); color: var(--accent2); opacity: 1; }
-    .api-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.3rem 0.7rem; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; border-radius: 4px; }
-    .api-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
-
-    .settings-overlay, .logs-overlay {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 100;
-      align-items: flex-start;
-      justify-content: flex-end;
-    }
-    .settings-overlay.open, .logs-overlay.open { display: flex; }
-
-    .logs-panel {
-      background: var(--surface);
-      border-left: 1px solid var(--border);
-      width: 560px;
-      height: 100%;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      overflow: hidden;
-    }
-    .logs-panel-header { display: flex; align-items: center; justify-content: space-between; }
-    .logs-panel-header h2 { font-size: 1rem; font-weight: 700; }
-    .logs-table { flex: 1; overflow-y: auto; font-size: 0.75rem; font-family: monospace; }
-    .logs-table table { width: 100%; border-collapse: collapse; }
-    .logs-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
-    .logs-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #1e2030; white-space: nowrap; }
-    .logs-table tr:last-child td { border-bottom: none; }
-    .log-2xx { color: var(--success); }
-    .log-4xx { color: #fbbf24; }
-    .log-5xx { color: var(--danger); }
-    .log-path { color: var(--text); max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
-    .log-method { color: var(--accent); }
-    .log-detail { color: var(--danger); font-size: 0.7rem; padding: 0.2rem 0.5rem 0.4rem 0.5rem; white-space: pre-wrap; word-break: break-all; background: #1a0a0a; border-bottom: 1px solid #2e1010; }
-    .log-expand { cursor: pointer; color: var(--muted); font-size: 0.7rem; padding: 0 0.3rem; }
-    .log-expand:hover { color: var(--danger); }
-
-    .settings-panel {
-      background: var(--surface);
-      border-left: 1px solid var(--border);
-      width: 360px;
-      height: 100%;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-      overflow-y: auto;
-    }
-    .settings-panel h2 { font-size: 1rem; font-weight: 700; }
-    .settings-field { display: flex; flex-direction: column; gap: 0.4rem; }
-    .settings-field label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 0.4rem; }
-    .settings-field input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.5rem 0.75rem;
-      color: var(--text);
-      font-size: 0.875rem;
-      outline: none;
-      font-family: monospace;
-    }
-    .settings-field input:focus { border-color: var(--accent); }
-    .settings-field input:read-only { opacity: 0.5; cursor: not-allowed; }
-    .source-badge { font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; background: var(--border); color: var(--muted); text-transform: none; letter-spacing: 0; }
-    .source-badge.env { background: #1a2e1a; color: var(--success); }
-    .source-badge.saved { background: #1a1e2e; color: var(--accent); }
-    .settings-note { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
-  </style>
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body>
+<body class="font-sans bg-bg text-text flex flex-col min-h-screen">
 
-<header>
-  <h1>Lo<span>cus</span></h1>
-  <span class="tagline">semantic dataspace manager</span>
-  <a class="api-btn" href="/docs" target="_blank">API</a>
-  <button class="logs-btn" onclick="openLogs()">Logs</button>
-  <button class="settings-btn" onclick="openSettings()" title="Settings">⚙</button>
+<header class="px-8 py-4 border-b border-border flex items-center gap-4">
+  <h1 class="text-[1.4rem] font-bold tracking-[0.05em]">Lo<span class="text-accent">cus</span></h1>
+  <span class="text-muted text-[0.8rem]">semantic dataspace manager</span>
+  <a class="ml-auto bg-transparent border border-border text-muted px-3 py-1 text-xs font-semibold tracking-[0.04em] no-underline rounded hover:border-accent hover:text-accent transition-colors" href="/docs" target="_blank" rel="noopener noreferrer">API</a>
+  <button class="bg-transparent border border-border text-muted px-3 py-1 text-xs font-semibold tracking-[0.04em] rounded cursor-pointer hover:border-accent2 hover:text-accent2 transition-colors" onclick="openLogs()">Logs</button>
+  <button class="bg-transparent border border-border text-muted px-2.5 py-1 text-base rounded cursor-pointer hover:border-accent hover:text-accent transition-colors" onclick="openSettings()" title="Settings">⚙</button>
 </header>
 
-<div class="logs-overlay" id="logsOverlay" onclick="closeLogsOnBackdrop(event)">
-  <div class="logs-panel">
-    <div class="logs-panel-header">
-      <h2>Request Log</h2>
-      <div style="display:flex;gap:0.5rem;">
-        <button class="secondary" style="font-size:0.75rem;padding:0.25rem 0.6rem;" onclick="clearLogs()">Clear</button>
-        <button class="secondary" style="font-size:0.75rem;padding:0.25rem 0.6rem;" onclick="closeLogs()">Close</button>
+<div class="hidden fixed inset-0 z-[100] bg-black/50 items-start justify-end" id="logsOverlay" onclick="closeLogsOnBackdrop(event)">
+  <div class="bg-surface border-l border-border w-[560px] h-full p-6 flex flex-col gap-4 overflow-hidden">
+    <div class="flex items-center justify-between">
+      <h2 class="text-base font-bold">Request Log</h2>
+      <div class="flex gap-2">
+        <button class="bg-surface border border-border text-text rounded px-2.5 py-1 text-xs cursor-pointer hover:opacity-85" onclick="clearLogs()">Clear</button>
+        <button class="bg-surface border border-border text-text rounded px-2.5 py-1 text-xs cursor-pointer hover:opacity-85" onclick="closeLogs()">Close</button>
       </div>
     </div>
-    <div class="logs-table">
-      <table>
-        <thead><tr><th>Time</th><th>Method</th><th>Path</th><th>Status</th><th>ms</th></tr></thead>
+    <div class="flex-1 overflow-y-auto text-xs font-mono">
+      <table class="w-full border-collapse">
+        <thead>
+          <tr>
+            <th class="text-left text-muted font-semibold px-2 py-1 border-b border-border sticky top-0 bg-surface">Time</th>
+            <th class="text-left text-muted font-semibold px-2 py-1 border-b border-border sticky top-0 bg-surface">Method</th>
+            <th class="text-left text-muted font-semibold px-2 py-1 border-b border-border sticky top-0 bg-surface">Path</th>
+            <th class="text-left text-muted font-semibold px-2 py-1 border-b border-border sticky top-0 bg-surface">Status</th>
+            <th class="text-left text-muted font-semibold px-2 py-1 border-b border-border sticky top-0 bg-surface">ms</th>
+          </tr>
+        </thead>
         <tbody id="logsBody"></tbody>
       </table>
     </div>
   </div>
 </div>
 
-<div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOnBackdrop(event)">
-  <div class="settings-panel">
-    <h2>Settings</h2>
+<div class="hidden fixed inset-0 z-[100] bg-black/50 items-start justify-end" id="settingsOverlay" onclick="closeSettingsOnBackdrop(event)">
+  <div class="bg-surface border-l border-border w-[360px] h-full p-6 flex flex-col gap-5 overflow-y-auto">
+    <h2 class="text-base font-bold">Settings</h2>
 
-    <div class="settings-field">
-      <label>Ollama URL <span class="source-badge" id="urlSourceBadge"></span></label>
-      <input id="settingsOllamaUrl" type="text" placeholder="http://localhost:11434" />
+    <div class="flex flex-col gap-1.5">
+      <label class="text-xs text-muted uppercase tracking-[0.08em] flex items-center gap-1.5">Ollama URL <span id="urlSourceBadge"></span></label>
+      <input id="settingsOllamaUrl" type="text" placeholder="http://localhost:11434" class="bg-bg border border-border rounded px-3 py-2 text-text text-sm outline-none font-mono focus:border-accent read-only:opacity-50 read-only:cursor-not-allowed" />
     </div>
 
-    <div class="settings-field">
-      <label>Embed model <span class="source-badge" id="modelSourceBadge"></span></label>
-      <input id="settingsEmbedModel" type="text" placeholder="nomic-embed-text" />
+    <div class="flex flex-col gap-1.5">
+      <label class="text-xs text-muted uppercase tracking-[0.08em] flex items-center gap-1.5">Embed model <span id="modelSourceBadge"></span></label>
+      <input id="settingsEmbedModel" type="text" placeholder="nomic-embed-text" class="bg-bg border border-border rounded px-3 py-2 text-text text-sm outline-none font-mono focus:border-accent read-only:opacity-50 read-only:cursor-not-allowed" />
     </div>
 
-    <p class="settings-note" id="settingsNote"></p>
+    <p class="text-xs text-muted leading-relaxed" id="settingsNote"></p>
 
-    <div style="display:flex;gap:0.5rem;">
-      <button onclick="saveSettings()">Save</button>
-      <button class="secondary" onclick="closeSettings()">Cancel</button>
+    <div class="flex gap-2">
+      <button class="bg-accent text-white border-none rounded px-3 py-1.5 text-[0.8rem] cursor-pointer font-semibold hover:opacity-85" onclick="saveSettings()">Save</button>
+      <button class="bg-surface border border-border text-text rounded px-3 py-1.5 text-[0.8rem] cursor-pointer hover:opacity-85" onclick="closeSettings()">Cancel</button>
     </div>
 
     <div id="settingsStatus"></div>
   </div>
 </div>
 
-<div class="layout">
-  <aside>
-    <h2>Spaces</h2>
-    <div class="space-list" id="spaceList"></div>
-    <div class="new-space">
-      <input id="newSpaceName" placeholder="new space…" />
-      <button onclick="createSpace()">+</button>
+<div class="grid grid-cols-[220px_1fr] flex-1">
+  <aside class="border-r border-border p-4 flex flex-col gap-2">
+    <h2 class="text-[0.7rem] uppercase tracking-[0.1em] text-muted mb-1">Spaces</h2>
+    <div class="flex flex-col gap-1 flex-1" id="spaceList"></div>
+    <div class="flex gap-2 mt-2">
+      <input id="newSpaceName" placeholder="new space…" class="flex-1 bg-surface border border-border rounded px-2.5 py-1.5 text-text text-[0.8rem] outline-none focus:border-accent" />
+      <button class="bg-accent text-white border-none rounded px-3 py-1.5 text-[0.8rem] cursor-pointer font-semibold hover:opacity-85" onclick="createSpace()">+</button>
     </div>
   </aside>
 
-  <main id="main">
-    <div class="empty-state">
-      <div class="icon">◈</div>
+  <main id="main" class="p-6 px-8 flex flex-col gap-6 overflow-y-auto">
+    <div class="flex flex-col items-center justify-center flex-1 text-muted gap-2 p-16 text-center">
+      <div class="text-[2.5rem]">◈</div>
       <div>Select or create a dataspace to get started</div>
     </div>
   </main>
 </div>
 
+
 <script>
   let currentSpace = null;
+
+  const SPACE_ITEM_BASE   = 'group px-3 py-1.5 rounded cursor-pointer text-sm border border-transparent flex justify-between items-center hover:bg-surface';
+  const SPACE_ITEM_ACTIVE = 'group px-3 py-1.5 rounded cursor-pointer text-sm border flex justify-between items-center bg-surface border-accent text-accent';
+  const BTN_PRIMARY   = 'bg-accent text-white border-none rounded px-3 py-1.5 text-[0.8rem] cursor-pointer font-semibold hover:opacity-85';
+  const BTN_SECONDARY = 'bg-surface border border-border text-text rounded px-3 py-1.5 text-[0.8rem] cursor-pointer hover:opacity-85';
+  const BTN_DANGER    = 'bg-danger text-white border-none rounded px-2 py-0.5 text-[0.7rem] cursor-pointer font-semibold hover:opacity-85';
+  const STATUS_OK     = 'text-[0.8rem] px-3 py-1.5 rounded bg-[#0d2e22] text-success';
+  const STATUS_ERR    = 'text-[0.8rem] px-3 py-1.5 rounded bg-[#2e0d0d] text-danger';
+  const TAG           = 'inline-block text-[0.7rem] px-1.5 py-0.5 rounded bg-border text-muted';
+
+  function sourceBadgeClass(source) {
+    const base = 'text-[0.65rem] px-1.5 py-0.5 rounded-[3px]';
+    if (source === 'env')   return base + ' bg-[#1a2e1a] text-success';
+    if (source === 'saved') return base + ' bg-[#1a1e2e] text-accent';
+    return base + ' bg-border text-muted';
+  }
 
   async function api(method, path, body) {
     const opts = { method, headers: {} };
@@ -321,9 +128,16 @@
     list.innerHTML = '';
     for (const s of spaces) {
       const el = document.createElement('div');
-      el.className = 'space-item' + (s === currentSpace ? ' active' : '');
-      el.innerHTML = `<span>${s}</span><span class="del" onclick="delSpace(event,'${s}')">✕</span>`;
-      el.onclick = () => selectSpace(s);
+      el.className = s === currentSpace ? SPACE_ITEM_ACTIVE : SPACE_ITEM_BASE;
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = s;
+      el.appendChild(nameSpan);
+      const deleteSpan = document.createElement('span');
+      deleteSpan.className = 'opacity-0 group-hover:opacity-100 text-xs text-danger cursor-pointer';
+      deleteSpan.textContent = '✕';
+      deleteSpan.addEventListener('click', e => delSpace(e, s));
+      el.appendChild(deleteSpan);
+      el.addEventListener('click', () => selectSpace(s));
       list.appendChild(el);
     }
   }
@@ -355,48 +169,48 @@
 
   function renderEmpty() {
     document.getElementById('main').innerHTML = `
-      <div class="empty-state">
-        <div class="icon">◈</div>
+      <div class="flex flex-col items-center justify-center flex-1 text-muted gap-2 p-16 text-center">
+        <div class="text-[2.5rem]">◈</div>
         <div>Select or create a dataspace to get started</div>
       </div>`;
   }
 
   function renderSpace() {
     document.getElementById('main').innerHTML = `
-      <div class="panel">
-        <h3>Search</h3>
-        <div class="search-row">
-          <input id="searchQ" placeholder="Ask anything…" onkeydown="if(event.key==='Enter') doSearch()" />
-          <input type="number" id="searchK" value="5" min="1" max="50" style="width:60px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:0.5rem;color:var(--text);outline:none;" title="top-k" />
-          <label style="font-size:0.8rem;display:flex;align-items:center;gap:4px;color:var(--muted);">
+      <div class="bg-surface border border-border rounded p-4 px-5">
+        <h3 class="text-[0.8rem] uppercase tracking-[0.08em] text-muted mb-3">Search</h3>
+        <div class="flex gap-2">
+          <input id="searchQ" placeholder="Ask anything…" class="flex-1 bg-bg border border-border rounded px-3 py-2 text-text text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter') doSearch()" />
+          <input type="number" id="searchK" value="5" min="1" max="50" class="w-[60px] bg-bg border border-border rounded p-2 text-text outline-none" title="top-k" />
+          <label class="text-[0.8rem] flex items-center gap-1 text-muted">
             <input type="checkbox" id="searchFull" /> full
           </label>
-          <button onclick="doSearch()">Search</button>
+          <button class="${BTN_PRIMARY}" onclick="doSearch()">Search</button>
         </div>
-        <div id="searchResults" style="margin-top:1rem;"></div>
+        <div id="searchResults" class="mt-4"></div>
       </div>
 
-      <div class="panel">
-        <h3>Ingest</h3>
-        <div class="ingest-area">
-          <textarea id="ingestText" placeholder="Paste text to ingest…"></textarea>
-          <div class="ingest-row">
-            <input type="text" id="ingestSource" placeholder="source label (optional)" />
-            <button onclick="doIngest()">Ingest</button>
+      <div class="bg-surface border border-border rounded p-4 px-5">
+        <h3 class="text-[0.8rem] uppercase tracking-[0.08em] text-muted mb-3">Ingest</h3>
+        <div class="flex flex-col gap-2">
+          <textarea id="ingestText" placeholder="Paste text to ingest…" class="bg-bg border border-border rounded px-3 py-2.5 text-text text-sm resize-y min-h-[90px] font-sans outline-none focus:border-accent"></textarea>
+          <div class="flex gap-2 items-center">
+            <input type="text" id="ingestSource" placeholder="source label (optional)" class="flex-1 bg-bg border border-border rounded px-2.5 py-1.5 text-text text-[0.8rem] outline-none focus:border-accent" />
+            <button class="${BTN_PRIMARY}" onclick="doIngest()">Ingest</button>
           </div>
-          <div style="color:var(--muted);font-size:0.75rem;">or upload a file:</div>
-          <div class="ingest-row">
-            <input type="file" id="ingestFile" accept=".txt,.md,.markdown,.csv,.json,text/*" style="flex:1;font-size:0.8rem;color:var(--muted);" />
-            <button onclick="doUpload()">Upload</button>
+          <div class="text-muted text-xs">or upload a file:</div>
+          <div class="flex gap-2 items-center">
+            <input type="file" id="ingestFile" accept=".txt,.md,.markdown,.csv,.json,text/*" class="flex-1 text-[0.8rem] text-muted" />
+            <button class="${BTN_PRIMARY}" onclick="doUpload()">Upload</button>
           </div>
           <div id="ingestStatus"></div>
         </div>
       </div>
 
-      <div class="panel">
-        <h3>Documents</h3>
-        <div id="docsList"><span style="color:var(--muted);font-size:0.8rem;">Loading…</span></div>
-        <button class="secondary" style="margin-top:0.75rem;font-size:0.75rem;" onclick="loadDocs()">Refresh</button>
+      <div class="bg-surface border border-border rounded p-4 px-5">
+        <h3 class="text-[0.8rem] uppercase tracking-[0.08em] text-muted mb-3">Documents</h3>
+        <div id="docsList"><span class="text-muted text-[0.8rem]">Loading…</span></div>
+        <button class="bg-surface border border-border text-text rounded px-3 py-1.5 text-xs cursor-pointer hover:opacity-85 mt-3" onclick="loadDocs()">Refresh</button>
       </div>`;
 
     loadDocs();
@@ -408,21 +222,21 @@
     const k = document.getElementById('searchK').value;
     const full = document.getElementById('searchFull').checked;
     const el = document.getElementById('searchResults');
-    el.innerHTML = '<span style="color:var(--muted);font-size:0.8rem;">Searching…</span>';
+    el.innerHTML = '<span class="text-muted text-[0.8rem]">Searching…</span>';
     try {
       const data = await api('GET', `/spaces/${currentSpace}/search?q=${encodeURIComponent(q)}&k=${k}&full=${full}`);
-      if (!data.results.length) { el.innerHTML = '<span style="color:var(--muted);font-size:0.8rem;">No results.</span>'; return; }
-      el.innerHTML = data.results.map(r => `
-        <div class="result-card">
-          <div class="result-meta">
-            <span class="tag">${r.metadata?.filename || r.metadata?.source || 'doc'}</span>
-            <span class="result-score">score ${r.score}</span>
+      if (!data.results.length) { el.innerHTML = '<span class="text-muted text-[0.8rem]">No results.</span>'; return; }
+      el.innerHTML = `<div class="flex flex-col gap-3">${data.results.map(r => `
+        <div class="bg-bg border border-border rounded px-4 py-3">
+          <div class="flex justify-between text-xs text-muted mb-1.5">
+            <span class="${TAG}">${esc(r.metadata?.filename || r.metadata?.source || 'doc')}</span>
+            <span class="text-accent2 font-semibold">score ${r.score}</span>
           </div>
-          <div class="result-text">${esc(r.text)}</div>
-          ${r.full_text ? `<div class="result-full">${esc(r.full_text)}</div>` : ''}
-        </div>`).join('');
+          <div class="text-sm leading-relaxed">${esc(r.text)}</div>
+          ${r.full_text ? `<div class="mt-2 pt-2 border-t border-border text-[0.8rem] text-muted whitespace-pre-wrap max-h-[200px] overflow-y-auto">${esc(r.full_text)}</div>` : ''}
+        </div>`).join('')}</div>`;
     } catch (e) {
-      el.innerHTML = `<span style="color:var(--danger);font-size:0.8rem;">${e.message}</span>`;
+      el.innerHTML = `<span class="text-danger text-[0.8rem]">${esc(e.message)}</span>`;
     }
   }
 
@@ -448,13 +262,13 @@
 
   async function submitIngest(fd) {
     const status = document.getElementById('ingestStatus');
-    status.innerHTML = '<span style="color:var(--muted);font-size:0.8rem;">Ingesting…</span>';
+    status.innerHTML = '<span class="text-muted text-[0.8rem]">Ingesting…</span>';
     try {
       const r = await api('POST', `/spaces/${currentSpace}/documents`, fd);
-      status.innerHTML = `<span class="status ok">Ingested — ${r.chunk_count} chunks · id: ${r.doc_id}</span>`;
+      status.innerHTML = `<span class="${STATUS_OK}">Ingested — ${r.chunk_count} chunks · id: ${r.doc_id}</span>`;
       loadDocs();
     } catch (e) {
-      status.innerHTML = `<span class="status err">${e.message}</span>`;
+      status.innerHTML = `<span class="${STATUS_ERR}">${esc(e.message)}</span>`;
     }
   }
 
@@ -463,15 +277,15 @@
     if (!el) return;
     try {
       const { documents } = await api('GET', `/spaces/${currentSpace}/documents`);
-      if (!documents.length) { el.innerHTML = '<span style="color:var(--muted);font-size:0.8rem;">No documents yet.</span>'; return; }
-      el.innerHTML = `<div class="docs-list">${documents.map(d => `
-        <div class="doc-row">
-          <span class="doc-id" onclick="fetchDoc('${d.doc_id}')">${d.doc_id.slice(0,12)}…</span>
-          <span style="color:var(--muted);font-size:0.75rem;">${d.filename || d.source || ''}</span>
-          <button class="danger" style="padding:0.2rem 0.5rem;font-size:0.7rem;" onclick="delDoc('${d.doc_id}')">delete</button>
+      if (!documents.length) { el.innerHTML = '<span class="text-muted text-[0.8rem]">No documents yet.</span>'; return; }
+      el.innerHTML = `<div class="flex flex-col gap-1.5">${documents.map((d, i) => `
+        <div class="flex justify-between items-center text-[0.8rem] py-1 ${i < documents.length - 1 ? 'border-b border-border' : ''}">
+          <span class="font-mono text-accent cursor-pointer hover:underline" onclick="fetchDoc(${JSON.stringify(d.doc_id)})">${esc(d.doc_id.slice(0,12))}…</span>
+          <span class="text-muted text-xs">${esc(d.filename || d.source || '')}</span>
+          <button class="${BTN_DANGER}" onclick="delDoc(${JSON.stringify(d.doc_id)})">delete</button>
         </div>`).join('')}</div>`;
     } catch (e) {
-      el.innerHTML = `<span style="color:var(--danger);font-size:0.8rem;">${e.message}</span>`;
+      el.innerHTML = `<span class="text-danger text-[0.8rem]">${esc(e.message)}</span>`;
     }
   }
 
@@ -487,7 +301,7 @@
   }
 
   function esc(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
   // ── Settings ──────────────────────────────────────────────────────────────
@@ -503,9 +317,9 @@
     modelField.readOnly = s.embed_model.readonly;
 
     document.getElementById('urlSourceBadge').textContent = s.ollama_url.source;
-    document.getElementById('urlSourceBadge').className = `source-badge ${s.ollama_url.source}`;
+    document.getElementById('urlSourceBadge').className = sourceBadgeClass(s.ollama_url.source);
     document.getElementById('modelSourceBadge').textContent = s.embed_model.source;
-    document.getElementById('modelSourceBadge').className = `source-badge ${s.embed_model.source}`;
+    document.getElementById('modelSourceBadge').className = sourceBadgeClass(s.embed_model.source);
 
     const allReadonly = s.ollama_url.readonly && s.embed_model.readonly;
     document.getElementById('settingsNote').textContent = allReadonly
@@ -515,11 +329,11 @@
         : 'These values are saved to disk and used when environment variables are not set.';
 
     document.getElementById('settingsStatus').innerHTML = '';
-    document.getElementById('settingsOverlay').classList.add('open');
+    document.getElementById('settingsOverlay').classList.replace('hidden', 'flex');
   }
 
   function closeSettings() {
-    document.getElementById('settingsOverlay').classList.remove('open');
+    document.getElementById('settingsOverlay').classList.replace('flex', 'hidden');
   }
 
   function closeSettingsOnBackdrop(e) {
@@ -534,9 +348,9 @@
     const statusEl = document.getElementById('settingsStatus');
     try {
       await api('POST', '/settings', body);
-      statusEl.innerHTML = '<span class="status ok">Saved.</span>';
+      statusEl.innerHTML = `<span class="${STATUS_OK}">Saved.</span>`;
     } catch (e) {
-      statusEl.innerHTML = `<span class="status err">${e.message}</span>`;
+      statusEl.innerHTML = `<span class="${STATUS_ERR}">${esc(e.message)}</span>`;
     }
   }
 
@@ -546,13 +360,13 @@
   const logsExpanded = new Set();
 
   async function openLogs() {
-    document.getElementById('logsOverlay').classList.add('open');
+    document.getElementById('logsOverlay').classList.replace('hidden', 'flex');
     await refreshLogs();
     logsInterval = setInterval(refreshLogs, 2000);
   }
 
   function closeLogs() {
-    document.getElementById('logsOverlay').classList.remove('open');
+    document.getElementById('logsOverlay').classList.replace('flex', 'hidden');
     clearInterval(logsInterval);
     logsInterval = null;
   }
@@ -567,25 +381,25 @@
       const tbody = document.getElementById('logsBody');
       if (!tbody) return;
       if (!logs.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted);padding:0.5rem;">No requests yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted p-2">No requests yet.</td></tr>';
         return;
       }
       tbody.innerHTML = logs.map(l => {
-        const cls = l.status >= 500 ? 'log-5xx' : l.status >= 400 ? 'log-4xx' : 'log-2xx';
+        const cls = l.status >= 500 ? 'text-danger' : l.status >= 400 ? 'text-[#fbbf24]' : 'text-success';
         const hasDetail = !!l.detail;
         const open = logsExpanded.has(l.seq);
         const detailRow = hasDetail
-          ? `<tr id="logd-${l.seq}" style="display:${open ? 'table-row' : 'none'}"><td colspan="5" class="log-detail">${esc(String(l.detail))}</td></tr>`
+          ? `<tr id="logd-${l.seq}" style="display:${open ? 'table-row' : 'none'}"><td colspan="5" class="text-danger text-[0.7rem] px-2 py-1 whitespace-pre-wrap break-all bg-[#1a0a0a] border-b border-[#2e1010]">${esc(String(l.detail))}</td></tr>`
           : '';
         const expandBtn = hasDetail
-          ? `<span class="log-expand">${open ? '▼' : '▶'}</span>`
+          ? `<span data-log-expand class="cursor-pointer text-muted text-[0.7rem] px-1 hover:text-danger">${open ? '▼' : '▶'}</span>`
           : '';
         return `<tr style="cursor:${hasDetail ? 'pointer' : 'default'}" onclick="${hasDetail ? `toggleLogDetail(${l.seq})` : ''}">
-          <td style="color:var(--muted)">${l.ts}</td>
-          <td class="log-method">${l.method}</td>
-          <td class="log-path" title="${esc(l.path)}">${esc(l.path)}</td>
-          <td class="${cls}">${l.status}${expandBtn}</td>
-          <td style="color:var(--muted)">${l.ms}ms</td>
+          <td class="text-muted px-2 py-1 border-b border-[#1e2030] whitespace-nowrap">${l.ts}</td>
+          <td class="text-accent px-2 py-1 border-b border-[#1e2030] whitespace-nowrap">${l.method}</td>
+          <td class="text-text max-w-[240px] overflow-hidden text-ellipsis px-2 py-1 border-b border-[#1e2030] whitespace-nowrap" title="${esc(l.path)}">${esc(l.path)}</td>
+          <td class="${cls} px-2 py-1 border-b border-[#1e2030] whitespace-nowrap">${l.status}${expandBtn}</td>
+          <td class="text-muted px-2 py-1 border-b border-[#1e2030] whitespace-nowrap">${l.ms}ms</td>
         </tr>${detailRow}`;
       }).join('');
     } catch (_) {}
@@ -599,19 +413,17 @@
     }
     const row = document.getElementById(`logd-${seq}`);
     if (row) row.style.display = logsExpanded.has(seq) ? 'table-row' : 'none';
-    // update arrow without full refresh
-    const rows = document.querySelectorAll(`#logsBody tr`);
+    const rows = document.querySelectorAll('#logsBody tr');
     rows.forEach(r => {
       if (r.onclick && r.onclick.toString().includes(`(${seq})`)) {
-        const span = r.querySelector('.log-expand');
+        const span = r.querySelector('[data-log-expand]');
         if (span) span.textContent = logsExpanded.has(seq) ? '▼' : '▶';
       }
     });
   }
 
   async function clearLogs() {
-    const opts = { method: 'DELETE' };
-    await fetch('/logs', opts);
+    await fetch('/logs', { method: 'DELETE' });
     await refreshLogs();
   }
 
