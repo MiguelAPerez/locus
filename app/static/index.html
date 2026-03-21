@@ -12,7 +12,7 @@
 <header class="px-8 py-4 border-b border-border flex items-center gap-4">
   <h1 class="text-[1.4rem] font-bold tracking-[0.05em]">Lo<span class="text-accent">cus</span></h1>
   <span class="text-muted text-[0.8rem]">semantic dataspace manager</span>
-  <a class="ml-auto bg-transparent border border-border text-muted px-3 py-1 text-xs font-semibold tracking-[0.04em] no-underline rounded hover:border-accent hover:text-accent transition-colors" href="/docs" target="_blank">API</a>
+  <a class="ml-auto bg-transparent border border-border text-muted px-3 py-1 text-xs font-semibold tracking-[0.04em] no-underline rounded hover:border-accent hover:text-accent transition-colors" href="/docs" target="_blank" rel="noopener noreferrer">API</a>
   <button class="bg-transparent border border-border text-muted px-3 py-1 text-xs font-semibold tracking-[0.04em] rounded cursor-pointer hover:border-accent2 hover:text-accent2 transition-colors" onclick="openLogs()">Logs</button>
   <button class="bg-transparent border border-border text-muted px-2.5 py-1 text-base rounded cursor-pointer hover:border-accent hover:text-accent transition-colors" onclick="openSettings()" title="Settings">⚙</button>
 </header>
@@ -86,23 +86,6 @@
   </main>
 </div>
 
-<!-- Tailwind safelist: classes only referenced in JS-generated HTML -->
-<div class="hidden" aria-hidden="true">
-  <span class="group px-3 py-1.5 rounded cursor-pointer text-sm border border-transparent flex justify-between items-center hover:bg-surface"></span>
-  <span class="bg-surface border-accent text-accent border"></span>
-  <span class="opacity-0 group-hover:opacity-100 text-danger"></span>
-  <span class="text-success text-[#fbbf24] text-muted text-accent text-accent2 text-text text-danger"></span>
-  <span class="bg-[#0d2e22] bg-[#2e0d0d] bg-[#1a2e1a] bg-[#1a1e2e] bg-[#1a0a0a] bg-border"></span>
-  <span class="border-[#2e1010] border-[#1e2030] border-border border-t"></span>
-  <span class="max-w-[240px] overflow-hidden text-ellipsis whitespace-nowrap whitespace-pre-wrap break-all"></span>
-  <span class="mt-2 pt-2 max-h-[200px] overflow-y-auto leading-relaxed font-semibold font-mono"></span>
-  <span class="inline-block text-[0.7rem] px-1.5 py-0.5 rounded text-[0.65rem] px-1 text-[0.8rem]"></span>
-  <span class="bg-danger text-white border-none rounded px-2 py-0.5 cursor-pointer hover:opacity-85"></span>
-  <span class="hover:underline hover:text-danger transition-colors"></span>
-  <span class="text-[0.65rem] rounded-[3px] py-0.5"></span>
-  <span class="flex flex-col gap-1.5 flex justify-between items-center py-1 gap-3 mb-1.5"></span>
-  <span class="w-[60px] p-2 outline-none focus:border-accent resize-y min-h-[90px]"></span>
-</div>
 
 <script>
   let currentSpace = null;
@@ -146,8 +129,15 @@
     for (const s of spaces) {
       const el = document.createElement('div');
       el.className = s === currentSpace ? SPACE_ITEM_ACTIVE : SPACE_ITEM_BASE;
-      el.innerHTML = `<span>${s}</span><span class="opacity-0 group-hover:opacity-100 text-xs text-danger cursor-pointer" onclick="delSpace(event,'${s}')">✕</span>`;
-      el.onclick = () => selectSpace(s);
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = s;
+      el.appendChild(nameSpan);
+      const deleteSpan = document.createElement('span');
+      deleteSpan.className = 'opacity-0 group-hover:opacity-100 text-xs text-danger cursor-pointer';
+      deleteSpan.textContent = '✕';
+      deleteSpan.addEventListener('click', e => delSpace(e, s));
+      el.appendChild(deleteSpan);
+      el.addEventListener('click', () => selectSpace(s));
       list.appendChild(el);
     }
   }
@@ -311,7 +301,7 @@
   }
 
   function esc(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   // ── Settings ──────────────────────────────────────────────────────────────

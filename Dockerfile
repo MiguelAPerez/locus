@@ -9,7 +9,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Build Tailwind CSS
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
-    && curl -sL https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-x64 \
+    && arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) TAILWIND_ARCH="x64" ;; \
+         arm64) TAILWIND_ARCH="arm64" ;; \
+         armhf) TAILWIND_ARCH="armv7" ;; \
+         *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+       esac \
+    && curl -fsSL "https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-${TAILWIND_ARCH}" \
        -o /usr/local/bin/tailwindcss \
     && chmod +x /usr/local/bin/tailwindcss \
     && apt-get purge -y curl \
