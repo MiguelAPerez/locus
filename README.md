@@ -32,13 +32,11 @@ docker pull ghcr.io/miguelaperez/locus:latest
 ```
 
 ```bash
-cp .env.example .env
-# Edit .env to point OLLAMA_URL at your Ollama instance
-
 docker run -d \
   --name locus \
   -p 8000:8000 \
-  --env-file .env \
+  -e OLLAMA_URL=http://host.docker.internal:11434 \ # Point to your Ollama instance
+  -e EMBED_MODEL=nomic-embed-text \ # Default embedding model name
   -v locus_data:/data \
   ghcr.io/miguelaperez/locus:latest
 ```
