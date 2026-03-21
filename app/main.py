@@ -1,13 +1,56 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from typing import Optional
+from collections import deque
+import json
+import time
 import os
 
 from . import embeddings, store, spaces, config
 
 app = FastAPI(title="Locus", description="Semantic dataspace manager", version="1.0.0")
+
+_request_log: deque = deque(maxlen=200)
+_log_seq = 0
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    ms = round((time.time() - start) * 1000)
+
+    if request.url.path == "/logs":
+        return response
+
+    detail = None
+    if response.status_code >= 400:
+        # buffer body to extract error detail, then rebuild response
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        try:
+            detail = json.loads(body).get("detail")
+        except Exception:
+            detail = body.decode("utf-8", errors="replace")[:300]
+        response = Response(
+            content=body,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            media_type=response.media_type,
+        )
+
+    global _log_seq
+    _log_seq += 1
+    _request_log.appendleft({
+        "seq": _log_seq,
+        "ts": time.strftime("%H:%M:%S"),
+        "method": request.method,
+        "path": str(request.url.path),
+        "status": response.status_code,
+        "ms": ms,
+        "detail": detail,
+    })
+    return response
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
@@ -156,6 +199,16 @@ def update_settings(body: SettingsUpdate):
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "locus"}
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+
+@app.get("/logs")
+def get_logs():
+    return {"logs": list(_request_log)}
+
+@app.delete("/logs", status_code=204)
+def clear_logs():
+    _request_log.clear()
 
 # ── Static UI ─────────────────────────────────────────────────────────────────
 
