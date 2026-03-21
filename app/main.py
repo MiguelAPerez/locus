@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Optional
 import os
 
-from . import embeddings, store, spaces
+from . import embeddings, store, spaces, config
 
 app = FastAPI(title="Locus", description="Semantic dataspace manager", version="1.0.0")
 
@@ -18,6 +18,10 @@ class IngestResponse(BaseModel):
     doc_id: str
     space: str
     chunk_count: int
+
+class SettingsUpdate(BaseModel):
+    ollama_url: Optional[str] = None
+    embed_model: Optional[str] = None
 
 # ── Spaces ────────────────────────────────────────────────────────────────────
 
@@ -130,6 +134,22 @@ async def search(
             r["full_text"] = doc["text"] if doc else None
 
     return {"query": q, "space": space, "results": results}
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+@app.get("/settings")
+def get_settings():
+    return config.get_settings()
+
+
+@app.post("/settings")
+def update_settings(body: SettingsUpdate):
+    current = config.get_settings()
+    url = body.ollama_url if body.ollama_url is not None and not current["ollama_url"]["readonly"] else None
+    model = body.embed_model if body.embed_model is not None and not current["embed_model"]["readonly"] else None
+    if url is not None or model is not None:
+        config.save_settings(url, model)
+    return config.get_settings()
 
 # ── Health ────────────────────────────────────────────────────────────────────
 

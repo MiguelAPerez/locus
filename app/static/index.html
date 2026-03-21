@@ -146,6 +146,51 @@
     .status.err { background: #2e0d0d; color: var(--danger); }
 
     .tag { display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: var(--border); color: var(--muted); }
+
+    /* settings */
+    .settings-btn { margin-left: auto; background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.3rem 0.6rem; font-size: 1rem; }
+    .settings-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+
+    .settings-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      align-items: flex-start;
+      justify-content: flex-end;
+    }
+    .settings-overlay.open { display: flex; }
+
+    .settings-panel {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      width: 360px;
+      height: 100%;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      overflow-y: auto;
+    }
+    .settings-panel h2 { font-size: 1rem; font-weight: 700; }
+    .settings-field { display: flex; flex-direction: column; gap: 0.4rem; }
+    .settings-field label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 0.4rem; }
+    .settings-field input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.5rem 0.75rem;
+      color: var(--text);
+      font-size: 0.875rem;
+      outline: none;
+      font-family: monospace;
+    }
+    .settings-field input:focus { border-color: var(--accent); }
+    .settings-field input:read-only { opacity: 0.5; cursor: not-allowed; }
+    .source-badge { font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; background: var(--border); color: var(--muted); text-transform: none; letter-spacing: 0; }
+    .source-badge.env { background: #1a2e1a; color: var(--success); }
+    .source-badge.saved { background: #1a1e2e; color: var(--accent); }
+    .settings-note { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -153,7 +198,33 @@
 <header>
   <h1>Lo<span>cus</span></h1>
   <span class="tagline">semantic dataspace manager</span>
+  <button class="settings-btn" onclick="openSettings()" title="Settings">⚙</button>
 </header>
+
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOnBackdrop(event)">
+  <div class="settings-panel">
+    <h2>Settings</h2>
+
+    <div class="settings-field">
+      <label>Ollama URL <span class="source-badge" id="urlSourceBadge"></span></label>
+      <input id="settingsOllamaUrl" type="text" placeholder="http://localhost:11434" />
+    </div>
+
+    <div class="settings-field">
+      <label>Embed model <span class="source-badge" id="modelSourceBadge"></span></label>
+      <input id="settingsEmbedModel" type="text" placeholder="nomic-embed-text" />
+    </div>
+
+    <p class="settings-note" id="settingsNote"></p>
+
+    <div style="display:flex;gap:0.5rem;">
+      <button onclick="saveSettings()">Save</button>
+      <button class="secondary" onclick="closeSettings()">Cancel</button>
+    </div>
+
+    <div id="settingsStatus"></div>
+  </div>
+</div>
 
 <div class="layout">
   <aside>
@@ -366,6 +437,58 @@
   function esc(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+
+  async function openSettings() {
+    const s = await api('GET', '/settings');
+    const urlField = document.getElementById('settingsOllamaUrl');
+    const modelField = document.getElementById('settingsEmbedModel');
+
+    urlField.value = s.ollama_url.value;
+    urlField.readOnly = s.ollama_url.readonly;
+    modelField.value = s.embed_model.value;
+    modelField.readOnly = s.embed_model.readonly;
+
+    document.getElementById('urlSourceBadge').textContent = s.ollama_url.source;
+    document.getElementById('urlSourceBadge').className = `source-badge ${s.ollama_url.source}`;
+    document.getElementById('modelSourceBadge').textContent = s.embed_model.source;
+    document.getElementById('modelSourceBadge').className = `source-badge ${s.embed_model.source}`;
+
+    const allReadonly = s.ollama_url.readonly && s.embed_model.readonly;
+    document.getElementById('settingsNote').textContent = allReadonly
+      ? 'All settings are locked by environment variables and cannot be changed here.'
+      : s.ollama_url.readonly || s.embed_model.readonly
+        ? 'Fields marked "env" are set by environment variables and cannot be changed here.'
+        : 'These values are saved to disk and used when environment variables are not set.';
+
+    document.getElementById('settingsStatus').innerHTML = '';
+    document.getElementById('settingsOverlay').classList.add('open');
+  }
+
+  function closeSettings() {
+    document.getElementById('settingsOverlay').classList.remove('open');
+  }
+
+  function closeSettingsOnBackdrop(e) {
+    if (e.target === document.getElementById('settingsOverlay')) closeSettings();
+  }
+
+  async function saveSettings() {
+    const body = {
+      ollama_url: document.getElementById('settingsOllamaUrl').value.trim() || null,
+      embed_model: document.getElementById('settingsEmbedModel').value.trim() || null,
+    };
+    const statusEl = document.getElementById('settingsStatus');
+    try {
+      await api('POST', '/settings', body);
+      statusEl.innerHTML = '<span class="status ok">Saved.</span>';
+    } catch (e) {
+      statusEl.innerHTML = `<span class="status err">${e.message}</span>`;
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
 
   document.getElementById('newSpaceName').addEventListener('keydown', e => {
     if (e.key === 'Enter') createSpace();
