@@ -1,3 +1,9 @@
+## v0.3.1 (2026-03-21)
+
+### Fix
+
+- ensure /data volume is writable at container startup
+
 ## v0.3.0 (2026-03-21)
 
 ### Feat
