@@ -31,6 +31,14 @@ def get_embed_model() -> str:
     return _load_saved().get("embed_model", "nomic-embed-text")
 
 
+def get_max_upload_bytes() -> int:
+    val = os.getenv("MAX_UPLOAD_MB", "100")
+    try:
+        return int(val) * 1024 * 1024
+    except ValueError:
+        return 100 * 1024 * 1024
+
+
 def get_settings() -> dict:
     saved = _load_saved()
     return {

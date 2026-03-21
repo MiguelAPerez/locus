@@ -2,7 +2,14 @@ FROM python:3.12-slim
 
 WORKDIR /locus
 
-# Install deps first (layer cache)
+# System deps for file extraction (OCR + audio transcoding)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       tesseract-ocr \
+       ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python deps (layer cache)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -34,6 +41,7 @@ RUN mkdir -p /data
 ENV DATA_DIR=/data
 ENV OLLAMA_URL=http://ollama:11434
 ENV EMBED_MODEL=nomic-embed-text
+ENV MAX_UPLOAD_MB=100
 
 EXPOSE 8000
 
