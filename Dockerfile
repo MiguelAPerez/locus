@@ -6,8 +6,20 @@ WORKDIR /locus
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app
+# Build Tailwind CSS
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && curl -sL https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-x64 \
+       -o /usr/local/bin/tailwindcss \
+    && chmod +x /usr/local/bin/tailwindcss \
+    && apt-get purge -y curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY tailwind.config.js .
 COPY app/ ./app/
+
+RUN tailwindcss -i app/static/input.css -o app/static/styles.css --minify \
+    && rm /usr/local/bin/tailwindcss
 
 # Data volume mount point
 RUN mkdir -p /data
