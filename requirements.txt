@@ -8,3 +8,5 @@ pypdf>=4.0.0
 Pillow>=10.0.0
 pytesseract>=0.3.13
 openai-whisper>=20231117
+bcrypt>=4.0.0
+PyJWT>=2.8.0
