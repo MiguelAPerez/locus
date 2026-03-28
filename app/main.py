@@ -8,7 +8,7 @@ import json
 import time
 import os
 
-from . import embeddings, store, spaces, config, extractors
+from . import embeddings, store, spaces, config, extractors, collections as col
 
 app = FastAPI(title="Locus", description="Semantic dataspace manager", version="1.0.0")
 
@@ -65,6 +65,9 @@ class IngestResponse(BaseModel):
 class SettingsUpdate(BaseModel):
     ollama_url: Optional[str] = None
     embed_model: Optional[str] = None
+
+class CollectionCreate(BaseModel):
+    name: str
 
 # ── Spaces ────────────────────────────────────────────────────────────────────
 
@@ -194,6 +197,97 @@ async def search(
             r["full_text"] = doc["text"] if doc else None
 
     return {"query": q, "space": space, "results": results}
+
+# ── Collections ───────────────────────────────────────────────────────────────
+
+@app.get("/collections")
+def list_collections():
+    return {"collections": col.list_collections()}
+
+
+@app.post("/collections", status_code=201)
+def create_collection(body: CollectionCreate):
+    try:
+        name = col.create_collection(body.name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"collection": name, "status": "created"}
+
+
+@app.get("/collections/{name}")
+def get_collection(name: str):
+    try:
+        return col.get_collection(name)
+    except KeyError:
+        raise HTTPException(404, f"Collection '{name}' not found")
+
+
+@app.delete("/collections/{name}", status_code=200)
+def delete_collection(name: str):
+    try:
+        col.delete_collection(name)
+    except KeyError:
+        raise HTTPException(404, f"Collection '{name}' not found")
+    return {"collection": name, "status": "deleted"}
+
+
+@app.post("/collections/{name}/spaces/{space}", status_code=200)
+def add_space_to_collection(name: str, space: str):
+    if not spaces.space_exists(space):
+        raise HTTPException(404, f"Space '{space}' not found")
+    try:
+        col.add_space(name, space)
+    except KeyError:
+        raise HTTPException(404, f"Collection '{name}' not found")
+    return col.get_collection(name)
+
+
+@app.delete("/collections/{name}/spaces/{space}", status_code=200)
+def remove_space_from_collection(name: str, space: str):
+    try:
+        col.remove_space(name, space)
+    except KeyError:
+        raise HTTPException(404, f"Collection '{name}' not found")
+    return col.get_collection(name)
+
+
+@app.get("/collections/{name}/search")
+async def search_collection(
+    name: str,
+    q: str = Query(..., description="Search query"),
+    k: int = Query(5, ge=1, le=50),
+    full: bool = Query(False),
+):
+    try:
+        collection = col.get_collection(name)
+    except KeyError:
+        raise HTTPException(404, f"Collection '{name}' not found")
+
+    member_spaces = [s for s in collection["spaces"] if spaces.space_exists(s)]
+    if not member_spaces:
+        raise HTTPException(400, "Collection has no valid spaces to search")
+
+    try:
+        vector = await embeddings.embed(q)
+    except Exception as e:
+        raise HTTPException(502, f"Ollama embedding failed: {e}")
+
+    merged = []
+    for space in member_spaces:
+        results = store.search(space, vector, k=k)
+        for r in results:
+            r["space"] = space
+        merged.extend(results)
+
+    merged.sort(key=lambda r: r["score"], reverse=True)
+    merged = merged[:k]
+
+    if full:
+        for r in merged:
+            doc = await spaces.load_document(r["space"], r["doc_id"])
+            r["full_text"] = doc["text"] if doc else None
+
+    return {"query": q, "collection": name, "results": merged}
 
 # ── Settings ──────────────────────────────────────────────────────────────────
 
