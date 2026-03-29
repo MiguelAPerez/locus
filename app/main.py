@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
@@ -8,12 +8,22 @@ import json
 import time
 import os
 
-from . import embeddings, store, spaces, config, extractors, collections as col
+from . import embeddings, store, spaces, config, extractors, collections as col, db
+from .auth import get_current_user, CurrentUser
+from .routes.auth import router as auth_router
 
 app = FastAPI(title="Locus", description="Semantic dataspace manager", version="1.0.0")
+app.include_router(auth_router)
 
 _request_log: deque = deque(maxlen=200)
 _log_seq = 0
+
+
+@app.on_event("startup")
+def startup():
+    db.init_db()
+    spaces.migrate_flat_spaces()
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -26,7 +36,6 @@ async def log_requests(request: Request, call_next):
 
     detail = None
     if response.status_code >= 400:
-        # buffer body to extract error detail, then rebuild response
         body = b"".join([chunk async for chunk in response.body_iterator])
         try:
             detail = json.loads(body).get("detail")
@@ -52,9 +61,13 @@ async def log_requests(request: Request, call_next):
     })
     return response
 
-# ── Models ────────────────────────────────────────────────────────────────────
+
+# -- Models --------------------------------------------------------------------
 
 class SpaceCreate(BaseModel):
+    name: str
+
+class CollectionCreate(BaseModel):
     name: str
 
 class IngestResponse(BaseModel):
@@ -66,40 +79,51 @@ class SettingsUpdate(BaseModel):
     ollama_url: Optional[str] = None
     embed_model: Optional[str] = None
 
-class CollectionCreate(BaseModel):
-    name: str
 
-# ── Spaces ────────────────────────────────────────────────────────────────────
+# -- Ownership helper ----------------------------------------------------------
+
+def _assert_space_access(space: str, user: CurrentUser):
+    owner = db.get_space_owner(space)
+    if owner is None:
+        raise HTTPException(404, f"Space '{space}' not found")
+    if owner != user.id:
+        raise HTTPException(403, "Access denied")
+    if user.allowed_spaces and space not in user.allowed_spaces:
+        raise HTTPException(403, "API key does not grant access to this space")
+
+
+# -- Spaces -------------------------------------------------------------------
 
 @app.get("/spaces")
-def list_spaces():
-    return {"spaces": spaces.list_spaces()}
+def list_spaces(user: CurrentUser = Depends(get_current_user)):
+    return {"spaces": db.list_spaces_for_user(user.id)}
 
 
 @app.post("/spaces", status_code=201)
-def create_space(body: SpaceCreate):
+def create_space(body: SpaceCreate, user: CurrentUser = Depends(get_current_user)):
     name = body.name.strip().lower().replace(" ", "_")
-    if spaces.space_exists(name):
+    if spaces.space_exists(name, username=user.username):
         raise HTTPException(400, f"Space '{name}' already exists")
-    spaces.create_space(name)
+    spaces.create_space(name, username=user.username)
+    db.register_space(name, user.id)
     return {"space": name, "status": "created"}
 
 
 @app.delete("/spaces/{space}", status_code=200)
-def delete_space(space: str):
-    if not spaces.space_exists(space):
-        raise HTTPException(404, f"Space '{space}' not found")
-    store.delete_space(space)
-    spaces.delete_space_dir(space)
+def delete_space(space: str, user: CurrentUser = Depends(get_current_user)):
+    _assert_space_access(space, user)
+    store.delete_space(space, username=user.username)
+    spaces.delete_space_dir(space, username=user.username)
+    db.unregister_space(space)
     return {"space": space, "status": "deleted"}
 
-# ── Documents ─────────────────────────────────────────────────────────────────
+
+# -- Documents ----------------------------------------------------------------
 
 @app.get("/spaces/{space}/documents")
-def list_documents(space: str):
-    if not spaces.space_exists(space):
-        raise HTTPException(404, f"Space '{space}' not found")
-    return {"documents": store.list_documents(space)}
+def list_documents(space: str, user: CurrentUser = Depends(get_current_user)):
+    _assert_space_access(space, user)
+    return {"documents": store.list_documents(space, username=user.username)}
 
 
 @app.post("/spaces/{space}/documents", status_code=201)
@@ -108,9 +132,9 @@ async def ingest_document(
     text: Optional[str] = Form(None),
     source: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
+    user: CurrentUser = Depends(get_current_user),
 ):
-    if not spaces.space_exists(space):
-        raise HTTPException(404, f"Space '{space}' not found")
+    _assert_space_access(space, user)
     if not text and not file:
         raise HTTPException(400, "Provide either 'text' or a 'file'")
 
@@ -146,109 +170,108 @@ async def ingest_document(
     meta = {"doc_id": doc_id, "source": source or "manual", "filename": filename or "", "doc_type": doc_type}
     chunk_metas = [{**meta, "chunk_index": i} for i in range(len(chunks))]
 
-    store.upsert(space, doc_id, chunks, vectors, chunk_metas)
-    await spaces.save_document(space, doc_id, text, meta)
+    store.upsert(space, doc_id, chunks, vectors, chunk_metas, username=user.username)
+    await spaces.save_document(space, doc_id, text, meta, username=user.username)
     if file_content and doc_type != "text":
-        await spaces.save_original_file(space, doc_id, file_content, filename)
+        await spaces.save_original_file(space, doc_id, file_content, filename, username=user.username)
 
     return IngestResponse(doc_id=doc_id, space=space, chunk_count=len(chunks))
 
 
 @app.get("/spaces/{space}/documents/{doc_id}")
-async def get_document(space: str, doc_id: str):
-    if not spaces.space_exists(space):
-        raise HTTPException(404, f"Space '{space}' not found")
-    doc = await spaces.load_document(space, doc_id)
+async def get_document(space: str, doc_id: str, user: CurrentUser = Depends(get_current_user)):
+    _assert_space_access(space, user)
+    doc = await spaces.load_document(space, doc_id, username=user.username)
     if not doc:
         raise HTTPException(404, f"Document '{doc_id}' not found")
     return doc
 
 
 @app.delete("/spaces/{space}/documents/{doc_id}")
-def delete_document(space: str, doc_id: str):
-    if not spaces.space_exists(space):
-        raise HTTPException(404, f"Space '{space}' not found")
-    store.delete_document(space, doc_id)
-    spaces.delete_document_files(space, doc_id)
+def delete_document(space: str, doc_id: str, user: CurrentUser = Depends(get_current_user)):
+    _assert_space_access(space, user)
+    store.delete_document(space, doc_id, username=user.username)
+    spaces.delete_document_files(space, doc_id, username=user.username)
     return {"doc_id": doc_id, "status": "deleted"}
 
-# ── Search ────────────────────────────────────────────────────────────────────
+
+# -- Search -------------------------------------------------------------------
 
 @app.get("/spaces/{space}/search")
 async def search(
     space: str,
     q: str = Query(..., description="Search query"),
     k: int = Query(5, ge=1, le=50),
-    full: bool = Query(False, description="Include full document text in results"),
+    full: bool = Query(False),
+    user: CurrentUser = Depends(get_current_user),
 ):
-    if not spaces.space_exists(space):
-        raise HTTPException(404, f"Space '{space}' not found")
+    _assert_space_access(space, user)
 
     try:
         vector = await embeddings.embed(q)
     except Exception as e:
         raise HTTPException(502, f"Ollama embedding failed: {e}")
 
-    results = store.search(space, vector, k=k)
+    results = store.search(space, vector, k=k, username=user.username)
 
     if full:
         for r in results:
-            doc = await spaces.load_document(space, r["doc_id"])
+            doc = await spaces.load_document(space, r["doc_id"], username=user.username)
             r["full_text"] = doc["text"] if doc else None
 
     return {"query": q, "space": space, "results": results}
 
-# ── Collections ───────────────────────────────────────────────────────────────
+
+# -- Collections --------------------------------------------------------------
 
 @app.get("/collections")
-def list_collections():
-    return {"collections": col.list_collections()}
+def list_collections(user: CurrentUser = Depends(get_current_user)):
+    return {"collections": col.list_collections(user.id)}
 
 
 @app.post("/collections", status_code=201)
-def create_collection(body: CollectionCreate):
+def create_collection(body: CollectionCreate, user: CurrentUser = Depends(get_current_user)):
     try:
-        name = col.create_collection(body.name)
+        name = col.create_collection(body.name, user.id)
     except ValueError as e:
         raise HTTPException(400, str(e))
     return {"collection": name, "status": "created"}
 
 
 @app.get("/collections/{name}")
-def get_collection(name: str):
+def get_collection(name: str, user: CurrentUser = Depends(get_current_user)):
     try:
-        return col.get_collection(name)
+        return col.get_collection(name, user.id)
     except KeyError:
         raise HTTPException(404, f"Collection '{name}' not found")
 
 
 @app.delete("/collections/{name}", status_code=200)
-def delete_collection(name: str):
+def delete_collection(name: str, user: CurrentUser = Depends(get_current_user)):
     try:
-        col.delete_collection(name)
+        col.delete_collection(name, user.id)
     except KeyError:
         raise HTTPException(404, f"Collection '{name}' not found")
     return {"collection": name, "status": "deleted"}
 
 
 @app.post("/collections/{name}/spaces/{space}", status_code=200)
-def add_space_to_collection(name: str, space: str):
-    if not spaces.space_exists(space):
-        raise HTTPException(404, f"Space '{space}' not found")
+def add_space_to_collection(name: str, space: str, user: CurrentUser = Depends(get_current_user)):
+    _assert_space_access(space, user)
     try:
-        col.add_space(name, space)
+        col.add_space(name, space, user.id)
     except KeyError:
         raise HTTPException(404, f"Collection '{name}' not found")
-    return col.get_collection(name)
+    return col.get_collection(name, user.id)
 
 
 @app.delete("/collections/{name}/spaces/{space}", status_code=200)
-def remove_space_from_collection(name: str, space: str):
+def remove_space_from_collection(name: str, space: str, user: CurrentUser = Depends(get_current_user)):
     try:
-        col.remove_space(name, space)
+        col.remove_space(name, space, user.id)
     except KeyError:
         raise HTTPException(404, f"Collection '{name}' not found")
-    return col.get_collection(name)
+    return col.get_collection(name, user.id)
 
 
 @app.get("/collections/{name}/search")
@@ -257,13 +280,17 @@ async def search_collection(
     q: str = Query(..., description="Search query"),
     k: int = Query(5, ge=1, le=50),
     full: bool = Query(False),
+    user: CurrentUser = Depends(get_current_user),
 ):
     try:
-        collection = col.get_collection(name)
+        collection = col.get_collection(name, user.id)
     except KeyError:
         raise HTTPException(404, f"Collection '{name}' not found")
 
-    member_spaces = [s for s in collection["spaces"] if spaces.space_exists(s)]
+    if user.allowed_collections and name not in user.allowed_collections:
+        raise HTTPException(403, "API key does not grant access to this collection")
+
+    member_spaces = [s for s in collection["spaces"] if spaces.space_exists(s, username=user.username)]
     if not member_spaces:
         raise HTTPException(400, "Collection has no valid spaces to search")
 
@@ -273,10 +300,10 @@ async def search_collection(
         raise HTTPException(502, f"Ollama embedding failed: {e}")
 
     merged = []
-    for space in member_spaces:
-        results = store.search(space, vector, k=k)
+    for space_name in member_spaces:
+        results = store.search(space_name, vector, k=k, username=user.username)
         for r in results:
-            r["space"] = space
+            r["space"] = space_name
         merged.extend(results)
 
     merged.sort(key=lambda r: r["score"], reverse=True)
@@ -284,12 +311,13 @@ async def search_collection(
 
     if full:
         for r in merged:
-            doc = await spaces.load_document(r["space"], r["doc_id"])
+            doc = await spaces.load_document(r["space"], r["doc_id"], username=user.username)
             r["full_text"] = doc["text"] if doc else None
 
     return {"query": q, "collection": name, "results": merged}
 
-# ── Settings ──────────────────────────────────────────────────────────────────
+
+# -- Settings -----------------------------------------------------------------
 
 @app.get("/settings")
 def get_settings():
@@ -305,13 +333,15 @@ def update_settings(body: SettingsUpdate):
         config.save_settings(url, model)
     return config.get_settings()
 
-# ── Health ────────────────────────────────────────────────────────────────────
+
+# -- Health -------------------------------------------------------------------
 
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "locus"}
 
-# ── Logs ──────────────────────────────────────────────────────────────────────
+
+# -- Logs ---------------------------------------------------------------------
 
 @app.get("/logs")
 def get_logs():
@@ -321,7 +351,8 @@ def get_logs():
 def clear_logs():
     _request_log.clear()
 
-# ── Static UI ─────────────────────────────────────────────────────────────────
+
+# -- Static UI ----------------------------------------------------------------
 
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
