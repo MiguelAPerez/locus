@@ -1,9 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from collections import deque
 
 from app import config
+from app.auth import get_current_user, CurrentUser
 
 router = APIRouter(tags=["settings"])
 
@@ -17,12 +18,14 @@ class SettingsUpdate(BaseModel):
 
 
 @router.get("/settings")
-def get_settings():
+def get_settings(_: CurrentUser = Depends(get_current_user)):
     return config.get_settings()
 
 
 @router.post("/settings")
-def update_settings(body: SettingsUpdate):
+def update_settings(body: SettingsUpdate, user: CurrentUser = Depends(get_current_user)):
+    if user.is_api_key:
+        raise HTTPException(403, "API keys cannot modify settings; use a session token")
     current = config.get_settings()
     url = body.ollama_url if body.ollama_url is not None and not current["ollama_url"]["readonly"] else None
     model = body.embed_model if body.embed_model is not None and not current["embed_model"]["readonly"] else None
@@ -37,12 +40,12 @@ def health():
 
 
 @router.get("/logs")
-def get_logs():
+def get_logs(_: CurrentUser = Depends(get_current_user)):
     return {"logs": list(_request_log)}
 
 
 @router.delete("/logs", status_code=204)
-def clear_logs():
+def clear_logs(_: CurrentUser = Depends(get_current_user)):
     _request_log.clear()
 
 

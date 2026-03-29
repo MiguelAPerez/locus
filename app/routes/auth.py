@@ -1,7 +1,7 @@
 import re
 import secrets
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app import db, auth, config
 
@@ -22,8 +22,13 @@ class LoginRequest(BaseModel):
 
 class ApiKeyRequest(BaseModel):
     name: str
-    allowed_spaces: list[str] = []
-    allowed_collections: list[str] = []
+    allowed_spaces: list[str] = Field(default_factory=list)
+    allowed_collections: list[str] = Field(default_factory=list)
+
+
+def _require_auth_enabled():
+    if not config.auth_enabled():
+        raise HTTPException(404, "Auth is not enabled")
 
 
 @router.get("/status")
@@ -35,7 +40,7 @@ def auth_status():
 
 
 @router.post("/register", status_code=201)
-def register(body: RegisterRequest):
+def register(body: RegisterRequest, _: None = Depends(_require_auth_enabled)):
     if not config.registration_enabled():
         raise HTTPException(403, "Registration is disabled")
     username = body.username.strip().lower()
@@ -51,7 +56,7 @@ def register(body: RegisterRequest):
 
 
 @router.post("/login")
-def login(body: LoginRequest):
+def login(body: LoginRequest, _: None = Depends(_require_auth_enabled)):
     user = db.get_user_by_username(body.username.strip().lower())
     if not user or not auth.verify_password(body.password, user["password_hash"]):
         raise HTTPException(401, "Invalid username or password")
@@ -60,11 +65,11 @@ def login(body: LoginRequest):
 
 
 @router.get("/me")
-def me(current_user: auth.CurrentUser = Depends(auth.get_current_user)):
+def me(current_user: auth.CurrentUser = Depends(auth.get_current_user), _: None = Depends(_require_auth_enabled)):
     return {"id": current_user.id, "username": current_user.username}
 
 
-def _jwt_only(current_user: auth.CurrentUser = Depends(auth.get_current_user)) -> auth.CurrentUser:
+def _jwt_only(current_user: auth.CurrentUser = Depends(auth.get_current_user), _: None = Depends(_require_auth_enabled)) -> auth.CurrentUser:
     """Reject API key auth on sensitive key-management endpoints."""
     if current_user.is_api_key:
         raise HTTPException(403, "API keys cannot manage other API keys; use a session token")

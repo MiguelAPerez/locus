@@ -47,13 +47,15 @@ def create_space(body: SpaceCreate, user: CurrentUser = Depends(get_current_user
     name = body.name.strip().lower().replace(" ", "_")
     if not _SPACE_NAME_RE.match(name):
         raise HTTPException(400, "Space name must be 1-64 characters: letters, digits, _ or -")
-    if sp.space_exists(name, username=user.username):
-        raise HTTPException(400, f"Space '{name}' already exists")
-    sp.create_space(name, username=user.username)
     try:
         db.register_space(name, user.id)
     except ValueError:
         raise HTTPException(400, f"Space '{name}' already exists")
+    try:
+        sp.create_space(name, username=user.username)
+    except Exception:
+        db.unregister_space(name, user.id)
+        raise HTTPException(500, "Failed to create space directory")
     return {"space": name, "status": "created"}
 
 

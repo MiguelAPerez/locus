@@ -471,8 +471,13 @@ function esc(s) {
 // ── Settings ──────────────────────────────────────────────────────────────
 
 async function openSettings() {
-  loadApiKeys();
-  const s = await api('GET', '/settings');
+  loadApiKeys().catch(() => {});
+  let s;
+  try {
+    s = await api('GET', '/settings');
+  } catch (e) {
+    return; // 401 already redirected to login page
+  }
   const urlField = document.getElementById('settingsOllamaUrl');
   const modelField = document.getElementById('settingsEmbedModel');
 
