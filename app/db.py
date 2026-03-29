@@ -32,16 +32,18 @@ def init_db():
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS spaces (
-                name TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
                 owner_id TEXT NOT NULL,
                 created_at TEXT NOT NULL,
+                PRIMARY KEY (name, owner_id),
                 FOREIGN KEY (owner_id) REFERENCES users(id)
             );
             CREATE TABLE IF NOT EXISTS collections (
-                name TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
                 owner_id TEXT NOT NULL,
                 spaces TEXT NOT NULL DEFAULT '[]',
                 created_at TEXT NOT NULL,
+                PRIMARY KEY (name, owner_id),
                 FOREIGN KEY (owner_id) REFERENCES users(id)
             );
             CREATE TABLE IF NOT EXISTS api_keys (
@@ -95,7 +97,7 @@ def get_user_by_id(uid: str) -> dict | None:
 # ── Spaces registry ───────────────────────────────────────────────────────────
 
 def register_space(name: str, owner_id: str):
-    if get_space_owner(name) is not None:
+    if space_owned_by(name, owner_id):
         raise ValueError(f"Space '{name}' already exists")
     now = datetime.now(timezone.utc).isoformat()
     with _conn() as conn:
@@ -106,16 +108,18 @@ def register_space(name: str, owner_id: str):
         conn.commit()
 
 
-def unregister_space(name: str):
+def unregister_space(name: str, owner_id: str):
     with _conn() as conn:
-        conn.execute("DELETE FROM spaces WHERE name=?", (name,))
+        conn.execute("DELETE FROM spaces WHERE name=? AND owner_id=?", (name, owner_id))
         conn.commit()
 
 
-def get_space_owner(name: str) -> str | None:
+def space_owned_by(name: str, owner_id: str) -> bool:
     with _conn() as conn:
-        row = conn.execute("SELECT owner_id FROM spaces WHERE name=?", (name,)).fetchone()
-    return row["owner_id"] if row else None
+        row = conn.execute(
+            "SELECT 1 FROM spaces WHERE name=? AND owner_id=?", (name, owner_id)
+        ).fetchone()
+    return row is not None
 
 
 def list_spaces_for_user(owner_id: str) -> list[str]:
@@ -127,7 +131,7 @@ def list_spaces_for_user(owner_id: str) -> list[str]:
 # ── Collections ───────────────────────────────────────────────────────────────
 
 def create_collection(name: str, owner_id: str):
-    if _get_collection_row(name):
+    if _get_collection_row(name, owner_id):
         raise ValueError(f"Collection '{name}' already exists")
     now = datetime.now(timezone.utc).isoformat()
     with _conn() as conn:
@@ -138,14 +142,16 @@ def create_collection(name: str, owner_id: str):
         conn.commit()
 
 
-def _get_collection_row(name: str) -> dict | None:
+def _get_collection_row(name: str, owner_id: str) -> dict | None:
     with _conn() as conn:
-        row = conn.execute("SELECT * FROM collections WHERE name=?", (name,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM collections WHERE name=? AND owner_id=?", (name, owner_id)
+        ).fetchone()
     return dict(row) if row else None
 
 
-def get_collection(name: str) -> dict:
-    row = _get_collection_row(name)
+def get_collection(name: str, owner_id: str) -> dict:
+    row = _get_collection_row(name, owner_id)
     if not row:
         raise KeyError(name)
     return {"name": row["name"], "owner_id": row["owner_id"], "spaces": json.loads(row["spaces"])}
@@ -157,33 +163,39 @@ def list_collections_for_user(owner_id: str) -> list[str]:
     return [r["name"] for r in rows]
 
 
-def delete_collection(name: str):
-    if not _get_collection_row(name):
+def delete_collection(name: str, owner_id: str):
+    if not _get_collection_row(name, owner_id):
         raise KeyError(name)
     with _conn() as conn:
-        conn.execute("DELETE FROM collections WHERE name=?", (name,))
+        conn.execute("DELETE FROM collections WHERE name=? AND owner_id=?", (name, owner_id))
         conn.commit()
 
 
-def collection_add_space(collection: str, space: str):
-    row = _get_collection_row(collection)
+def collection_add_space(collection: str, space: str, owner_id: str):
+    row = _get_collection_row(collection, owner_id)
     if not row:
         raise KeyError(collection)
     spaces = json.loads(row["spaces"])
     if space not in spaces:
         spaces.append(space)
         with _conn() as conn:
-            conn.execute("UPDATE collections SET spaces=? WHERE name=?", (json.dumps(spaces), collection))
+            conn.execute(
+                "UPDATE collections SET spaces=? WHERE name=? AND owner_id=?",
+                (json.dumps(spaces), collection, owner_id),
+            )
             conn.commit()
 
 
-def collection_remove_space(collection: str, space: str):
-    row = _get_collection_row(collection)
+def collection_remove_space(collection: str, space: str, owner_id: str):
+    row = _get_collection_row(collection, owner_id)
     if not row:
         raise KeyError(collection)
     spaces = [s for s in json.loads(row["spaces"]) if s != space]
     with _conn() as conn:
-        conn.execute("UPDATE collections SET spaces=? WHERE name=?", (json.dumps(spaces), collection))
+        conn.execute(
+            "UPDATE collections SET spaces=? WHERE name=? AND owner_id=?",
+            (json.dumps(spaces), collection, owner_id),
+        )
         conn.commit()
 
 

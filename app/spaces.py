@@ -104,7 +104,9 @@ def migrate_flat_spaces():
         if entry in skip:
             continue
         src = os.path.join(DATA_DIR, entry)
-        if os.path.isdir(src):
+        # Only migrate dirs that contain a chroma subdir — these are legacy spaces.
+        # User dirs (e.g. alice/) contain space subdirs, not chroma directly.
+        if os.path.isdir(src) and os.path.isdir(os.path.join(src, "chroma")):
             dest = os.path.join(guest_dir, entry)
             if not os.path.exists(dest):
                 shutil.move(src, dest)

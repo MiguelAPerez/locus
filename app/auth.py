@@ -9,7 +9,15 @@ from fastapi import Request, HTTPException
 
 from . import db, config
 
-_SECRET = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
+_SECRET_RAW = os.getenv("SECRET_KEY", "")
+
+
+def _secret() -> str:
+    if not _SECRET_RAW:
+        if config.auth_enabled():
+            raise RuntimeError("SECRET_KEY env var must be set when AUTH_ENABLED=true")
+        return "dev-secret-not-used-when-auth-disabled"
+    return _SECRET_RAW
 
 
 @dataclass
@@ -30,7 +38,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    try:
+        return bcrypt.checkpw(password.encode(), hashed.encode())
+    except Exception:
+        return False
 
 
 def hash_api_key(raw_key: str) -> str:
@@ -42,11 +53,11 @@ def hash_api_key(raw_key: str) -> str:
 def create_jwt(user_id: str, username: str) -> str:
     exp = datetime.now(timezone.utc) + timedelta(hours=config.session_hours())
     payload = {"sub": user_id, "username": username, "exp": exp}
-    return jwt.encode(payload, _SECRET, algorithm="HS256")
+    return jwt.encode(payload, _secret(), algorithm="HS256")
 
 
 def decode_jwt(token: str) -> dict:
-    return jwt.decode(token, _SECRET, algorithms=["HS256"])
+    return jwt.decode(token, _secret(), algorithms=["HS256"])
 
 
 # ── FastAPI dependency ────────────────────────────────────────────────────────

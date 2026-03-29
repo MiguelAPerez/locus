@@ -1,8 +1,11 @@
+import re
 import secrets
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app import db, auth, config
+
+_USERNAME_RE = re.compile(r'^[a-z0-9_-]{1,32}$')
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -36,8 +39,10 @@ def register(body: RegisterRequest):
     if not config.registration_enabled():
         raise HTTPException(403, "Registration is disabled")
     username = body.username.strip().lower()
-    if not username or len(body.password) < 8:
-        raise HTTPException(400, "Username required and password must be at least 8 characters")
+    if not _USERNAME_RE.match(username):
+        raise HTTPException(400, "Username must be 1-32 characters: letters, digits, _ or -")
+    if len(body.password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
     try:
         uid = db.create_user(username, auth.hash_password(body.password))
     except ValueError:

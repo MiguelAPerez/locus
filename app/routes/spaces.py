@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Depends
 from pydantic import BaseModel
 from typing import Optional
@@ -6,6 +7,8 @@ from app import embeddings, store, spaces as sp, config, extractors, db
 from app.auth import get_current_user, CurrentUser
 
 router = APIRouter(tags=["spaces"])
+
+_SPACE_NAME_RE = re.compile(r'^[a-z0-9_-]{1,64}$')
 
 
 class SpaceCreate(BaseModel):
@@ -19,23 +22,25 @@ class IngestResponse(BaseModel):
 
 
 def assert_space_access(space: str, user: CurrentUser):
-    owner = db.get_space_owner(space)
-    if owner is None:
+    if not db.space_owned_by(space, user.id):
         raise HTTPException(404, f"Space '{space}' not found")
-    if owner != user.id:
-        raise HTTPException(403, "Access denied")
     if user.allowed_spaces and space not in user.allowed_spaces:
         raise HTTPException(403, "API key does not grant access to this space")
 
 
 @router.get("/spaces")
 def list_spaces(user: CurrentUser = Depends(get_current_user)):
-    return {"spaces": db.list_spaces_for_user(user.id)}
+    spaces = db.list_spaces_for_user(user.id)
+    if user.allowed_spaces:
+        spaces = [s for s in spaces if s in user.allowed_spaces]
+    return {"spaces": spaces}
 
 
 @router.post("/spaces", status_code=201)
 def create_space(body: SpaceCreate, user: CurrentUser = Depends(get_current_user)):
     name = body.name.strip().lower().replace(" ", "_")
+    if not _SPACE_NAME_RE.match(name):
+        raise HTTPException(400, "Space name must be 1-64 characters: letters, digits, _ or -")
     if sp.space_exists(name, username=user.username):
         raise HTTPException(400, f"Space '{name}' already exists")
     sp.create_space(name, username=user.username)
@@ -48,7 +53,7 @@ def delete_space(space: str, user: CurrentUser = Depends(get_current_user)):
     assert_space_access(space, user)
     store.delete_space(space, username=user.username)
     sp.delete_space_dir(space, username=user.username)
-    db.unregister_space(space)
+    db.unregister_space(space, user.id)
     return {"space": space, "status": "deleted"}
 
 

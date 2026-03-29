@@ -14,7 +14,10 @@ class CollectionCreate(BaseModel):
 
 @router.get("/collections")
 def list_collections(user: CurrentUser = Depends(get_current_user)):
-    return {"collections": col.list_collections(user.id)}
+    collections = col.list_collections(user.id)
+    if user.allowed_collections:
+        collections = [c for c in collections if c in user.allowed_collections]
+    return {"collections": collections}
 
 
 @router.post("/collections", status_code=201)
@@ -28,6 +31,8 @@ def create_collection(body: CollectionCreate, user: CurrentUser = Depends(get_cu
 
 @router.get("/collections/{name}")
 def get_collection(name: str, user: CurrentUser = Depends(get_current_user)):
+    if user.allowed_collections and name not in user.allowed_collections:
+        raise HTTPException(403, "API key does not grant access to this collection")
     try:
         return col.get_collection(name, user.id)
     except KeyError:
@@ -79,6 +84,8 @@ async def search_collection(
         raise HTTPException(403, "API key does not grant access to this collection")
 
     member_spaces = [s for s in collection["spaces"] if sp.space_exists(s, username=user.username)]
+    if user.allowed_spaces:
+        member_spaces = [s for s in member_spaces if s in user.allowed_spaces]
     if not member_spaces:
         raise HTTPException(400, "Collection has no valid spaces to search")
 

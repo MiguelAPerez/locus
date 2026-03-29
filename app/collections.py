@@ -11,9 +11,7 @@ def list_collections(owner_id: str) -> list[str]:
 
 
 def get_collection(name: str, owner_id: str) -> dict:
-    col = db.get_collection(name)
-    if col["owner_id"] != owner_id:
-        raise KeyError(name)
+    col = db.get_collection(name, owner_id)
     return {"name": col["name"], "spaces": col["spaces"]}
 
 
@@ -24,21 +22,12 @@ def create_collection(name: str, owner_id: str) -> str:
 
 
 def delete_collection(name: str, owner_id: str):
-    col = db.get_collection(name)
-    if col["owner_id"] != owner_id:
-        raise KeyError(name)
-    db.delete_collection(name)
+    db.delete_collection(name, owner_id)
 
 
 def add_space(collection: str, space: str, owner_id: str):
-    col = db.get_collection(collection)
-    if col["owner_id"] != owner_id:
-        raise KeyError(collection)
-    db.collection_add_space(collection, space)
+    db.collection_add_space(collection, space, owner_id)
 
 
 def remove_space(collection: str, space: str, owner_id: str):
-    col = db.get_collection(collection)
-    if col["owner_id"] != owner_id:
-        raise KeyError(collection)
-    db.collection_remove_space(collection, space)
+    db.collection_remove_space(collection, space, owner_id)
