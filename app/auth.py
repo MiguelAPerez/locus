@@ -24,6 +24,7 @@ class CurrentUser:
     username: str
     allowed_spaces: list[str] = field(default_factory=list)
     allowed_collections: list[str] = field(default_factory=list)
+    is_api_key: bool = False
 
 
 GUEST = CurrentUser(id="guest", username="guest")
@@ -106,4 +107,5 @@ def _validate_api_key(raw_key: str) -> CurrentUser:
         username=user["username"],
         allowed_spaces=key_row["allowed_spaces"],
         allowed_collections=key_row["allowed_collections"],
+        is_api_key=True,
     )

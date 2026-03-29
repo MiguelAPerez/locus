@@ -8,8 +8,8 @@ FAKE_VECTOR = [0.1] * 768
 @pytest.fixture(autouse=True)
 def tmp_data_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
-    monkeypatch.delenv("OLLAMA_URL", raising=False)
-    monkeypatch.delenv("EMBED_MODEL", raising=False)
+    monkeypatch.setenv("OLLAMA_URL", "")
+    monkeypatch.setenv("EMBED_MODEL", "")
     import app.spaces as spaces_mod
     import app.store as store_mod
     import app.db as db_mod

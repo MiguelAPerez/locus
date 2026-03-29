@@ -229,7 +229,7 @@ async function renderCollection(name) {
           : members.map(s => `
             <div class="flex justify-between items-center text-[0.8rem] py-1 border-b border-border">
               <span class="text-text">${esc(s)}</span>
-              <button class="${BTN_DANGER}" onclick="removeFromCollection('${s}')">remove</button>
+              <button class="${BTN_DANGER}" data-remove-space="${esc(s)}">remove</button>
             </div>`).join('')}
       </div>
       ${nonMembers.length > 0 ? `
@@ -250,6 +250,10 @@ async function renderCollection(name) {
       </div>
       <div id="colSearchResults" class="mt-4"></div>
     </div>`;
+
+  document.getElementById('membersList')?.querySelectorAll('[data-remove-space]').forEach(btn => {
+    btn.addEventListener('click', () => removeFromCollection(btn.dataset.removeSpace));
+  });
 }
 
 async function addToCollection() {

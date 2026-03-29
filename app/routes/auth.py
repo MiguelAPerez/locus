@@ -66,7 +66,7 @@ def me(current_user: auth.CurrentUser = Depends(auth.get_current_user)):
 
 def _jwt_only(current_user: auth.CurrentUser = Depends(auth.get_current_user)) -> auth.CurrentUser:
     """Reject API key auth on sensitive key-management endpoints."""
-    if current_user.allowed_spaces or current_user.allowed_collections:
+    if current_user.is_api_key:
         raise HTTPException(403, "API keys cannot manage other API keys; use a session token")
     return current_user
 
