@@ -69,16 +69,17 @@ def init_db():
 # ── Users ─────────────────────────────────────────────────────────────────────
 
 def create_user(username: str, password_hash: str) -> str:
-    if get_user_by_username(username):
-        raise ValueError(f"User '{username}' already exists")
     uid = uuid.uuid4().hex
     now = datetime.now(timezone.utc).isoformat()
-    with _conn() as conn:
-        conn.execute(
-            "INSERT INTO users (id, username, password_hash, created_at) VALUES (?,?,?,?)",
-            (uid, username, password_hash, now),
-        )
-        conn.commit()
+    try:
+        with _conn() as conn:
+            conn.execute(
+                "INSERT INTO users (id, username, password_hash, created_at) VALUES (?,?,?,?)",
+                (uid, username, password_hash, now),
+            )
+            conn.commit()
+    except sqlite3.IntegrityError:
+        raise ValueError(f"User '{username}' already exists")
     return uid
 
 
@@ -97,15 +98,16 @@ def get_user_by_id(uid: str) -> dict | None:
 # ── Spaces registry ───────────────────────────────────────────────────────────
 
 def register_space(name: str, owner_id: str):
-    if space_owned_by(name, owner_id):
-        raise ValueError(f"Space '{name}' already exists")
     now = datetime.now(timezone.utc).isoformat()
-    with _conn() as conn:
-        conn.execute(
-            "INSERT INTO spaces (name, owner_id, created_at) VALUES (?,?,?)",
-            (name, owner_id, now),
-        )
-        conn.commit()
+    try:
+        with _conn() as conn:
+            conn.execute(
+                "INSERT INTO spaces (name, owner_id, created_at) VALUES (?,?,?)",
+                (name, owner_id, now),
+            )
+            conn.commit()
+    except sqlite3.IntegrityError:
+        raise ValueError(f"Space '{name}' already exists")
 
 
 def unregister_space(name: str, owner_id: str):
@@ -123,9 +125,11 @@ def space_owned_by(name: str, owner_id: str) -> bool:
 
 
 def get_space_owner(name: str) -> str | None:
-    """Return the owner_id for a space regardless of who is asking, or None if it doesn't exist."""
+    """Return any owner_id for a space name, or None if no user owns it.
+    Used only to distinguish 404 (no owner) from 403 (owned by someone else).
+    Do not use for access decisions — use space_owned_by() instead."""
     with _conn() as conn:
-        row = conn.execute("SELECT owner_id FROM spaces WHERE name=?", (name,)).fetchone()
+        row = conn.execute("SELECT owner_id FROM spaces WHERE name=? LIMIT 1", (name,)).fetchone()
     return row["owner_id"] if row else None
 
 
@@ -133,6 +137,18 @@ def list_spaces_for_user(owner_id: str) -> list[str]:
     with _conn() as conn:
         rows = conn.execute("SELECT name FROM spaces WHERE owner_id=?", (owner_id,)).fetchall()
     return [r["name"] for r in rows]
+
+
+def sync_guest_spaces(disk_spaces: list[str]):
+    """Register any on-disk guest spaces that are missing from the DB registry."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _conn() as conn:
+        for name in disk_spaces:
+            conn.execute(
+                "INSERT OR IGNORE INTO spaces (name, owner_id, created_at) VALUES (?,?,?)",
+                (name, "guest", now),
+            )
+        conn.commit()
 
 
 # ── Collections ───────────────────────────────────────────────────────────────

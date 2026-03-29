@@ -22,6 +22,8 @@ app.include_router(settings_router)
 def startup():
     db.init_db()
     spaces.migrate_flat_spaces()
+    # Register any on-disk guest spaces that aren't yet in the DB (e.g. after migration)
+    db.sync_guest_spaces(spaces.list_spaces(username="guest"))
 
 
 @app.middleware("http")

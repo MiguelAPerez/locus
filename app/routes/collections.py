@@ -22,6 +22,8 @@ def list_collections(user: CurrentUser = Depends(get_current_user)):
 
 @router.post("/collections", status_code=201)
 def create_collection(body: CollectionCreate, user: CurrentUser = Depends(get_current_user)):
+    if user.allowed_collections:
+        raise HTTPException(403, "API key does not permit creating collections")
     try:
         name = col.create_collection(body.name, user.id)
     except ValueError as e:
@@ -41,6 +43,8 @@ def get_collection(name: str, user: CurrentUser = Depends(get_current_user)):
 
 @router.delete("/collections/{name}", status_code=200)
 def delete_collection(name: str, user: CurrentUser = Depends(get_current_user)):
+    if user.allowed_collections and name not in user.allowed_collections:
+        raise HTTPException(403, "API key does not grant access to this collection")
     try:
         col.delete_collection(name, user.id)
     except KeyError:
@@ -50,6 +54,8 @@ def delete_collection(name: str, user: CurrentUser = Depends(get_current_user)):
 
 @router.post("/collections/{name}/spaces/{space}", status_code=200)
 def add_space_to_collection(name: str, space: str, user: CurrentUser = Depends(get_current_user)):
+    if user.allowed_collections and name not in user.allowed_collections:
+        raise HTTPException(403, "API key does not grant access to this collection")
     assert_space_access(space, user)
     try:
         col.add_space(name, space, user.id)
@@ -60,6 +66,8 @@ def add_space_to_collection(name: str, space: str, user: CurrentUser = Depends(g
 
 @router.delete("/collections/{name}/spaces/{space}", status_code=200)
 def remove_space_from_collection(name: str, space: str, user: CurrentUser = Depends(get_current_user)):
+    if user.allowed_collections and name not in user.allowed_collections:
+        raise HTTPException(403, "API key does not grant access to this collection")
     try:
         col.remove_space(name, space, user.id)
     except KeyError:

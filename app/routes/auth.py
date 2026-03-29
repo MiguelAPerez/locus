@@ -64,13 +64,20 @@ def me(current_user: auth.CurrentUser = Depends(auth.get_current_user)):
     return {"id": current_user.id, "username": current_user.username}
 
 
+def _jwt_only(current_user: auth.CurrentUser = Depends(auth.get_current_user)) -> auth.CurrentUser:
+    """Reject API key auth on sensitive key-management endpoints."""
+    if current_user.allowed_spaces or current_user.allowed_collections:
+        raise HTTPException(403, "API keys cannot manage other API keys; use a session token")
+    return current_user
+
+
 @router.get("/keys")
-def list_keys(current_user: auth.CurrentUser = Depends(auth.get_current_user)):
+def list_keys(current_user: auth.CurrentUser = Depends(_jwt_only)):
     return {"keys": db.list_api_keys(current_user.id)}
 
 
 @router.post("/keys", status_code=201)
-def create_key(body: ApiKeyRequest, current_user: auth.CurrentUser = Depends(auth.get_current_user)):
+def create_key(body: ApiKeyRequest, current_user: auth.CurrentUser = Depends(_jwt_only)):
     raw_key = f"lcs_{secrets.token_hex(32)}"
     key_hash = auth.hash_api_key(raw_key)
     key_prefix = raw_key[:12]
@@ -86,5 +93,5 @@ def create_key(body: ApiKeyRequest, current_user: auth.CurrentUser = Depends(aut
 
 
 @router.delete("/keys/{key_id}", status_code=204)
-def delete_key(key_id: str, current_user: auth.CurrentUser = Depends(auth.get_current_user)):
+def delete_key(key_id: str, current_user: auth.CurrentUser = Depends(_jwt_only)):
     db.delete_api_key(key_id, current_user.id)
