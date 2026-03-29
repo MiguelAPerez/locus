@@ -22,10 +22,14 @@ class IngestResponse(BaseModel):
 
 
 def assert_space_access(space: str, user: CurrentUser):
-    if not db.space_owned_by(space, user.id):
-        raise HTTPException(404, f"Space '{space}' not found")
-    if user.allowed_spaces and space not in user.allowed_spaces:
-        raise HTTPException(403, "API key does not grant access to this space")
+    if db.space_owned_by(space, user.id):
+        if user.allowed_spaces and space not in user.allowed_spaces:
+            raise HTTPException(403, "API key does not grant access to this space")
+        return
+    # Not owned by this user — distinguish 404 (doesn't exist) from 403 (owned by someone else)
+    if db.get_space_owner(space) is not None:
+        raise HTTPException(403, "Access denied")
+    raise HTTPException(404, f"Space '{space}' not found")
 
 
 @router.get("/spaces")

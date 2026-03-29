@@ -7,6 +7,7 @@ from app import db
 def enable_auth(monkeypatch):
     monkeypatch.setenv("AUTH_ENABLED", "true")
     monkeypatch.setenv("REGISTRATION_ENABLED", "true")
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key")
 
 
 @pytest.fixture

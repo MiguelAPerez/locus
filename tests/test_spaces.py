@@ -69,9 +69,9 @@ def test_space_exists_with_username(tmp_data_dir):
 
 def test_migrate_flat_spaces(tmp_data_dir):
     import app.spaces as s
-    # Create flat legacy dirs
-    (tmp_data_dir / "old_space" / "assets").mkdir(parents=True)
-    (tmp_data_dir / "another" / "assets").mkdir(parents=True)
+    # Create flat legacy dirs (must contain chroma/ to be recognised as spaces)
+    (tmp_data_dir / "old_space" / "chroma").mkdir(parents=True)
+    (tmp_data_dir / "another" / "chroma").mkdir(parents=True)
     s.migrate_flat_spaces()
     assert (tmp_data_dir / "guest" / "old_space").is_dir()
     assert (tmp_data_dir / "guest" / "another").is_dir()

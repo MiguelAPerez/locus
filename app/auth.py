@@ -9,15 +9,13 @@ from fastapi import Request, HTTPException
 
 from . import db, config
 
-_SECRET_RAW = os.getenv("SECRET_KEY", "")
-
-
 def _secret() -> str:
-    if not _SECRET_RAW:
+    secret = os.getenv("SECRET_KEY", "")
+    if not secret:
         if config.auth_enabled():
             raise RuntimeError("SECRET_KEY env var must be set when AUTH_ENABLED=true")
         return "dev-secret-not-used-when-auth-disabled"
-    return _SECRET_RAW
+    return secret
 
 
 @dataclass

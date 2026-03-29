@@ -48,22 +48,23 @@ def test_delete_space():
     db.create_user("alice", "pw")
     uid = db.get_user_by_username("alice")["id"]
     db.register_space("notes", uid)
-    db.unregister_space("notes")
+    db.unregister_space("notes", uid)
     assert "notes" not in db.list_spaces_for_user(uid)
 
 
-def test_space_owner():
+def test_space_owned_by():
     db.create_user("alice", "pw")
     uid = db.get_user_by_username("alice")["id"]
     db.register_space("notes", uid)
-    assert db.get_space_owner("notes") == uid
+    assert db.space_owned_by("notes", uid) is True
+    assert db.space_owned_by("notes", "other-uid") is False
 
 
 def test_create_and_get_collection():
     db.create_user("alice", "pw")
     uid = db.get_user_by_username("alice")["id"]
     db.create_collection("research", uid)
-    col = db.get_collection("research")
+    col = db.get_collection("research", uid)
     assert col["name"] == "research"
     assert col["owner_id"] == uid
     assert col["spaces"] == []
@@ -73,10 +74,10 @@ def test_collection_add_remove_space():
     db.create_user("alice", "pw")
     uid = db.get_user_by_username("alice")["id"]
     db.create_collection("research", uid)
-    db.collection_add_space("research", "papers")
-    assert "papers" in db.get_collection("research")["spaces"]
-    db.collection_remove_space("research", "papers")
-    assert "papers" not in db.get_collection("research")["spaces"]
+    db.collection_add_space("research", "papers", uid)
+    assert "papers" in db.get_collection("research", uid)["spaces"]
+    db.collection_remove_space("research", "papers", uid)
+    assert "papers" not in db.get_collection("research", uid)["spaces"]
 
 
 def test_create_and_list_api_key():

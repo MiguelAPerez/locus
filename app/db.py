@@ -122,6 +122,13 @@ def space_owned_by(name: str, owner_id: str) -> bool:
     return row is not None
 
 
+def get_space_owner(name: str) -> str | None:
+    """Return the owner_id for a space regardless of who is asking, or None if it doesn't exist."""
+    with _conn() as conn:
+        row = conn.execute("SELECT owner_id FROM spaces WHERE name=?", (name,)).fetchone()
+    return row["owner_id"] if row else None
+
+
 def list_spaces_for_user(owner_id: str) -> list[str]:
     with _conn() as conn:
         rows = conn.execute("SELECT name FROM spaces WHERE owner_id=?", (owner_id,)).fetchall()
