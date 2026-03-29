@@ -10,9 +10,12 @@ def tmp_data_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     import app.spaces as spaces_mod
     import app.store as store_mod
+    import app.db as db_mod
     monkeypatch.setattr(spaces_mod, "DATA_DIR", str(tmp_path))
     monkeypatch.setattr(store_mod, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(db_mod, "DB_PATH", str(tmp_path / "auth.db"))
     store_mod._clients.clear()
+    db_mod.init_db()
     return tmp_path
 
 
