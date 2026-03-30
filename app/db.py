@@ -204,17 +204,16 @@ def list_spaces_for_user(owner_id: str) -> list[str]:
     return [r["name"] for r in rows]
 
 
-def sync_guest_spaces(disk_spaces: list[str]):
-    """Register any on-disk guest spaces that are missing from the DB registry."""
+def sync_space(name: str, owner_id: str):
+    """Register an on-disk space into the database registry if missing. Idempotent."""
+    if not _SPACE_NAME_RE.match(name):
+        return
     now = datetime.now(timezone.utc).isoformat()
     with _conn() as conn:
-        for name in disk_spaces:
-            if not _SPACE_NAME_RE.match(name):
-                continue
-            conn.execute(
-                "INSERT OR IGNORE INTO spaces (name, owner_id, created_at) VALUES (?,?,?)",
-                (name, "guest", now),
-            )
+        conn.execute(
+            "INSERT OR IGNORE INTO spaces (name, owner_id, created_at) VALUES (?,?,?)",
+            (name, owner_id, now),
+        )
         conn.commit()
 
 

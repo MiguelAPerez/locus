@@ -18,12 +18,47 @@ app.include_router(collections_router)
 app.include_router(settings_router)
 
 
+def _register_existing_spaces() -> None:
+    """Scan DATA_DIR for existing spaces and ensure they are registered in the DB."""
+    data_dir = spaces.DATA_DIR
+    if not os.path.isdir(data_dir):
+        return
+
+    # Skip files at the root
+    for username in os.listdir(data_dir):
+        user_path = os.path.join(data_dir, username)
+        if not os.path.isdir(user_path):
+            continue
+
+        # Skip known non-user directories
+        if username in {".", "..", "chroma"}:
+            continue
+
+        # Find owner_id
+        if username == "guest":
+            owner_id = "guest"
+        else:
+            user = db.get_user_by_username(username)
+            if not user:
+                continue
+            owner_id = user["id"]
+
+        # For each user, list their space directories
+        for space_name in os.listdir(user_path):
+            if not os.path.isdir(os.path.join(user_path, space_name)):
+                continue
+
+            try:
+                db.sync_space(space_name, owner_id)
+            except Exception:
+                continue
+
+
 @app.on_event("startup")
 def startup():
     db.init_db()
     spaces.migrate_flat_spaces()
-    # Register any on-disk guest spaces that aren't yet in the DB (e.g. after migration)
-    db.sync_guest_spaces(spaces.list_spaces(username="guest"))
+    _register_existing_spaces()
 
 
 @app.middleware("http")
