@@ -187,7 +187,7 @@ function dismissResetToken() {
 
 // -- API keys panel ---------------------------------------------------------
 async function loadApiKeys() {
-  if (!authEnabled) return;
+  if (!authEnabled || isApiKeyAuth) return;
   document.getElementById('apiKeysSection').classList.remove('hidden');
   const { keys } = await api('GET', '/auth/keys');
   const list = document.getElementById('apiKeysList');

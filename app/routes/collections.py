@@ -22,8 +22,6 @@ def list_collections(user: CurrentUser = Depends(get_current_user)):
 
 @router.post("/collections", status_code=201)
 def create_collection(body: CollectionCreate, user: CurrentUser = Depends(get_current_user)):
-    if user.allowed_collections:
-        raise HTTPException(403, "API key does not permit creating collections")
     try:
         name = col.create_collection(body.name, user.id)
     except ValueError as e:

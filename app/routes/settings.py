@@ -1,3 +1,4 @@
+import threading
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -10,6 +11,7 @@ router = APIRouter(tags=["settings"])
 
 _request_log: deque = deque(maxlen=200)
 _log_seq: int = 0
+_log_lock = threading.Lock()
 
 
 class SettingsUpdate(BaseModel):
@@ -55,13 +57,14 @@ def clear_logs(user: CurrentUser = Depends(get_current_user)):
 
 def record_request(method: str, path: str, status: int, ms: int, detail: str | None):
     global _log_seq
-    _log_seq += 1
-    _request_log.appendleft({
-        "seq": _log_seq,
-        "ts": __import__("time").strftime("%H:%M:%S"),
-        "method": method,
-        "path": path,
-        "status": status,
-        "ms": ms,
-        "detail": detail,
-    })
+    with _log_lock:
+        _log_seq += 1
+        _request_log.appendleft({
+            "seq": _log_seq,
+            "ts": __import__("time").strftime("%H:%M:%S"),
+            "method": method,
+            "path": path,
+            "status": status,
+            "ms": ms,
+            "detail": detail,
+        })

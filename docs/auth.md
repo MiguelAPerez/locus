@@ -168,7 +168,7 @@ Each user's spaces live under `{DATA_DIR}/{username}/{space}/`. Users can only a
 
 ### Legacy migration
 
-On first boot with auth enabled, Locus automatically moves any flat `data/{space}/` directories into `data/guest/{space}/` so existing data is preserved under the guest account.
+On every startup, Locus automatically moves any flat `data/{space}/` directories into `data/guest/{space}/` so existing data is preserved under the guest account. This migration is a no-op once all legacy spaces have been moved.
 
 ---
 
