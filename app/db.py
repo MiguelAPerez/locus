@@ -4,6 +4,7 @@ import re
 import uuid
 import json
 from datetime import datetime, timezone
+from . import config, auth
 
 _SPACE_NAME_RE = re.compile(r'^[a-z0-9_-]{1,64}$')
 
@@ -73,6 +74,32 @@ def init_db():
             ("guest", "guest", "", 0, now),
         )
         conn.commit()
+    _bootstrap_admin()
+
+
+def _bootstrap_admin():
+    username = config.get_initial_admin_username()
+    password = config.get_initial_admin_password()
+    if not username or not password or not config.auth_enabled():
+        return
+
+    existing = get_user_by_username(username)
+    if existing:
+        # Ensure it is admin if it matches the bootstrap username
+        if not existing["is_admin"]:
+            set_admin(existing["id"], True)
+        return
+
+    # Create the bootstrap admin
+    uid = uuid.uuid4().hex
+    now = datetime.now(timezone.utc).isoformat()
+    pw_hash = auth.hash_password(password)
+    with _conn() as conn:
+        conn.execute(
+            "INSERT INTO users (id, username, password_hash, is_admin, created_at) VALUES (?,?,?,?,?)",
+            (uid, username, pw_hash, 1, now),
+        )
+        conn.commit()
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────
@@ -82,14 +109,9 @@ def create_user(username: str, password_hash: str) -> str:
     now = datetime.now(timezone.utc).isoformat()
     try:
         with _conn() as conn:
-            # First non-guest user becomes admin
-            count = conn.execute(
-                "SELECT COUNT(*) FROM users WHERE id != 'guest'"
-            ).fetchone()[0]
-            is_admin = 1 if count == 0 else 0
             conn.execute(
                 "INSERT INTO users (id, username, password_hash, is_admin, created_at) VALUES (?,?,?,?,?)",
-                (uid, username, password_hash, is_admin, now),
+                (uid, username, password_hash, 0, now),
             )
             conn.commit()
     except sqlite3.IntegrityError:

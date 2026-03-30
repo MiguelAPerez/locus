@@ -80,3 +80,11 @@ def session_hours() -> int:
         return int(os.getenv("SESSION_HOURS", "24"))
     except ValueError:
         return 24
+
+
+def get_initial_admin_username() -> str | None:
+    return os.getenv("INITIAL_ADMIN_USERNAME")
+
+
+def get_initial_admin_password() -> str | None:
+    return os.getenv("INITIAL_ADMIN_PASSWORD")

@@ -96,16 +96,9 @@ def test_delete_api_key():
     assert not any(k["id"] == kid for k in db.list_api_keys(uid))
 
 
-def test_first_user_is_admin():
+def test_first_user_is_not_admin():
     uid = db.create_user("alice", "pw")
     user = db.get_user_by_id(uid)
-    assert user["is_admin"] == 1
-
-
-def test_second_user_is_not_admin():
-    db.create_user("alice", "pw")
-    uid2 = db.create_user("bob", "pw")
-    user = db.get_user_by_id(uid2)
     assert user["is_admin"] == 0
 
 
