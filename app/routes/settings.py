@@ -40,12 +40,16 @@ def health():
 
 
 @router.get("/logs")
-def get_logs(_: CurrentUser = Depends(get_current_user)):
+def get_logs(user: CurrentUser = Depends(get_current_user)):
+    if user.is_api_key:
+        raise HTTPException(403, "API keys cannot view logs; use a session token")
     return {"logs": list(_request_log)}
 
 
 @router.delete("/logs", status_code=204)
-def clear_logs(_: CurrentUser = Depends(get_current_user)):
+def clear_logs(user: CurrentUser = Depends(get_current_user)):
+    if user.is_api_key:
+        raise HTTPException(403, "API keys cannot clear logs; use a session token")
     _request_log.clear()
 
 
