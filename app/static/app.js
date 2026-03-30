@@ -191,11 +191,19 @@ async function loadApiKeys() {
   document.getElementById('apiKeysSection').classList.remove('hidden');
   const { keys } = await api('GET', '/auth/keys');
   const list = document.getElementById('apiKeysList');
-  list.innerHTML = keys.map(k => `
-    <div class="flex items-center justify-between text-xs py-1">
-      <span class="text-text">${esc(k.name)} <span class="text-muted">(${esc(k.key_prefix)}…)</span></span>
-      <button onclick="deleteApiKey('${esc(k.id)}')" class="text-red-400 hover:text-red-300 ml-2">✕</button>
-    </div>`).join('');
+  list.innerHTML = keys.map(k => {
+    const now = new Date();
+    const expired = k.expires_at && new Date(k.expires_at) < now;
+    const expiry = k.expires_at
+      ? `<span class="${expired ? 'text-danger' : 'text-muted'}">${expired ? 'expired' : 'exp ' + new Date(k.expires_at).toLocaleDateString()}</span>`
+      : `<span class="text-muted">no expiry</span>`;
+    return `
+    <div class="flex items-center justify-between text-xs py-1 gap-2">
+      <span class="text-text flex-1">${esc(k.name)} <span class="text-muted">(${esc(k.key_prefix)}…)</span></span>
+      ${expiry}
+      <button onclick="deleteApiKey('${esc(k.id)}')" class="text-danger hover:opacity-85 ml-1">✕</button>
+    </div>`;
+  }).join('');
 }
 
 async function showCreateKeyForm() {
@@ -231,9 +239,11 @@ async function createApiKey() {
 
   const allowed_spaces = Array.from(document.querySelectorAll('input[name="newKeySpace"]:checked')).map(cb => cb.value);
   const allowed_collections = Array.from(document.querySelectorAll('input[name="newKeyColl"]:checked')).map(cb => cb.value);
+  const expiryRaw = document.getElementById('newKeyExpiry').value;
+  const expires_hours = expiryRaw ? parseInt(expiryRaw, 10) : null;
 
   try {
-    const data = await api('POST', '/auth/keys', { name, allowed_spaces, allowed_collections });
+    const data = await api('POST', '/auth/keys', { name, allowed_spaces, allowed_collections, expires_hours });
     document.getElementById('createKeyForm').classList.add('hidden');
     document.getElementById('newKeyValue').textContent = data.key;
     document.getElementById('newKeyDisplay').classList.remove('hidden');

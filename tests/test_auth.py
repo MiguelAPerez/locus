@@ -208,13 +208,21 @@ def test_change_password_wrong_current(auth_client):
     assert r.status_code == 400
 
 
-def test_admin_can_list_users(auth_client):
+def _make_admin(client, username="alice"):
+    """Register a user via REST (gets real bcrypt hash), promote to admin, return (token, uid)."""
     from app import db as _db
-    uid = _db.create_user("admin", "pw")
+    _register(client, username)
+    uid = _db.get_user_by_username(username)["id"]
     _db.set_admin(uid, True)
-    token = _login(auth_client, "admin", "pw").json()["access_token"]
-    r = auth_client.get("/auth/users", headers={"Authorization": f"Bearer {token}"})
+    token = _login(client, username).json()["access_token"]
+    return token, uid
+
+
+def test_admin_can_list_users(auth_client):
+    admin_token, _ = _make_admin(auth_client)
+    r = auth_client.get("/auth/users", headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 200
+    assert any(u["username"] == "alice" for u in r.json()["users"])
 
 
 def test_nonadmin_cannot_list_users(auth_client):
@@ -225,11 +233,7 @@ def test_nonadmin_cannot_list_users(auth_client):
 
 
 def test_admin_can_reset_and_use_token(auth_client):
-    from app import db as _db
-    aid = _db.create_user("admin", "pw")
-    _db.set_admin(aid, True)
-    admin_token = _login(auth_client, "admin", "pw").json()["access_token"]
-
+    admin_token, _ = _make_admin(auth_client)
     _register(auth_client, "bob")
     bob_id = auth_client.get(
         "/auth/users", headers={"Authorization": f"Bearer {admin_token}"}
@@ -251,21 +255,13 @@ def test_admin_can_reset_and_use_token(auth_client):
 
 
 def test_admin_cannot_delete_self(auth_client):
-    from app import db as _db
-    aid = _db.create_user("admin", "pw")
-    _db.set_admin(aid, True)
-    admin_token = _login(auth_client, "admin", "pw").json()["access_token"]
-
+    admin_token, aid = _make_admin(auth_client)
     r = auth_client.delete(f"/auth/users/{aid}", headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 400
 
 
 def test_admin_can_delete_user(auth_client):
-    from app import db as _db
-    aid = _db.create_user("admin", "pw")
-    _db.set_admin(aid, True)
-    admin_token = _login(auth_client, "admin", "pw").json()["access_token"]
-
+    admin_token, _ = _make_admin(auth_client)
     _register(auth_client, "bob")
     bob_id = auth_client.get(
         "/auth/users", headers={"Authorization": f"Bearer {admin_token}"}
@@ -275,11 +271,7 @@ def test_admin_can_delete_user(auth_client):
 
 
 def test_promote_and_demote(auth_client):
-    from app import db as _db
-    aid = _db.create_user("admin", "pw")
-    _db.set_admin(aid, True)
-    admin_token = _login(auth_client, "admin", "pw").json()["access_token"]
-
+    admin_token, _ = _make_admin(auth_client)
     _register(auth_client, "bob")
     bob_id = auth_client.get(
         "/auth/users", headers={"Authorization": f"Bearer {admin_token}"}
@@ -294,10 +286,6 @@ def test_promote_and_demote(auth_client):
 
 
 def test_admin_cannot_demote_self(auth_client):
-    from app import db as _db
-    aid = _db.create_user("admin", "pw")
-    _db.set_admin(aid, True)
-    admin_token = _login(auth_client, "admin", "pw").json()["access_token"]
-
+    admin_token, aid = _make_admin(auth_client)
     r = auth_client.post(f"/auth/users/{aid}/demote", headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 400

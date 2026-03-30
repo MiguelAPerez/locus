@@ -10,6 +10,10 @@ def tmp_data_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     monkeypatch.setenv("OLLAMA_URL", "")
     monkeypatch.setenv("EMBED_MODEL", "")
+    # Disable auth and bootstrap by default; auth tests opt-in via their own fixtures
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("INITIAL_ADMIN_USERNAME", "")
+    monkeypatch.setenv("INITIAL_ADMIN_PASSWORD", "")
     import app.spaces as spaces_mod
     import app.store as store_mod
     import app.db as db_mod

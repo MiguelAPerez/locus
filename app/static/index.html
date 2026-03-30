@@ -97,6 +97,18 @@
           <div id="newKeyCollectionsList" class="flex flex-col gap-1 max-h-[100px] overflow-y-auto border border-border/50 rounded p-1.5 bg-black/10"></div>
         </div>
 
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[0.65rem] text-muted uppercase tracking-wider font-semibold">Expires</label>
+          <select id="newKeyExpiry" class="bg-bg border border-border rounded px-2.5 py-1.5 text-text text-xs outline-none focus:border-accent cursor-pointer">
+            <option value="">Never</option>
+            <option value="24">24 hours</option>
+            <option value="168">7 days</option>
+            <option value="720">30 days</option>
+            <option value="2160">90 days</option>
+            <option value="8760">1 year</option>
+          </select>
+        </div>
+
         <button onclick="createApiKey()" class="bg-accent text-white border-none rounded px-3 py-1.5 text-xs font-semibold cursor-pointer hover:opacity-85">Create</button>
       </div>
       <div id="newKeyDisplay" class="hidden bg-bg border border-border rounded p-3 flex flex-col gap-2">

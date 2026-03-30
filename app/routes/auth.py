@@ -24,6 +24,7 @@ class ApiKeyRequest(BaseModel):
     name: str
     allowed_spaces: list[str] = Field(default_factory=list)
     allowed_collections: list[str] = Field(default_factory=list)
+    expires_hours: int | None = None  # None = never expires, 0 invalid, positive = hours until expiry
 
 
 class ChangePasswordRequest(BaseModel):
@@ -108,9 +109,15 @@ def list_keys(current_user: auth.CurrentUser = Depends(_jwt_only)):
 
 @router.post("/keys", status_code=201)
 def create_key(body: ApiKeyRequest, current_user: auth.CurrentUser = Depends(_jwt_only)):
+    if body.expires_hours is not None and body.expires_hours <= 0:
+        raise HTTPException(400, "expires_hours must be a positive integer or null for no expiry")
     raw_key = f"lcs_{secrets.token_hex(32)}"
     key_hash = auth.hash_api_key(raw_key)
     key_prefix = raw_key[:12]
+    expires_at = None
+    if body.expires_hours:
+        from datetime import datetime, timedelta, timezone
+        expires_at = (datetime.now(timezone.utc) + timedelta(hours=body.expires_hours)).isoformat()
     kid = db.create_api_key(
         current_user.id,
         body.name,
@@ -118,8 +125,9 @@ def create_key(body: ApiKeyRequest, current_user: auth.CurrentUser = Depends(_jw
         key_prefix,
         body.allowed_spaces,
         body.allowed_collections,
+        expires_at,
     )
-    return {"id": kid, "key": raw_key, "key_prefix": key_prefix}
+    return {"id": kid, "key": raw_key, "key_prefix": key_prefix, "expires_at": expires_at}
 
 
 @router.delete("/keys/{key_id}", status_code=204)

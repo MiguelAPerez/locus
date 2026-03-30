@@ -59,15 +59,20 @@ def init_db():
                 user_id TEXT NOT NULL,
                 allowed_spaces TEXT NOT NULL DEFAULT '[]',
                 allowed_collections TEXT NOT NULL DEFAULT '[]',
+                expires_at TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             );
         """)
-        # Migration: add is_admin column to existing DBs
-        try:
-            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
-        except Exception:
-            pass  # column already exists
+        # Migrations: add columns to existing DBs
+        for stmt in [
+            "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE api_keys ADD COLUMN expires_at TEXT",
+        ]:
+            try:
+                conn.execute(stmt)
+            except Exception:
+                pass  # column already exists
         now = datetime.now(timezone.utc).isoformat()
         conn.execute(
             "INSERT OR IGNORE INTO users (id, username, password_hash, is_admin, created_at) VALUES (?,?,?,?,?)",
@@ -297,14 +302,15 @@ def create_api_key(
     key_prefix: str,
     allowed_spaces: list[str],
     allowed_collections: list[str],
+    expires_at: str | None = None,
 ) -> str:
     kid = uuid.uuid4().hex
     now = datetime.now(timezone.utc).isoformat()
     with _conn() as conn:
         conn.execute(
-            "INSERT INTO api_keys (id, name, key_hash, key_prefix, user_id, allowed_spaces, allowed_collections, created_at) "
-            "VALUES (?,?,?,?,?,?,?,?)",
-            (kid, name, key_hash, key_prefix, user_id, json.dumps(allowed_spaces), json.dumps(allowed_collections), now),
+            "INSERT INTO api_keys (id, name, key_hash, key_prefix, user_id, allowed_spaces, allowed_collections, expires_at, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            (kid, name, key_hash, key_prefix, user_id, json.dumps(allowed_spaces), json.dumps(allowed_collections), expires_at, now),
         )
         conn.commit()
     return kid
@@ -320,6 +326,7 @@ def list_api_keys(user_id: str) -> list[dict]:
             "key_prefix": r["key_prefix"],
             "allowed_spaces": json.loads(r["allowed_spaces"]),
             "allowed_collections": json.loads(r["allowed_collections"]),
+            "expires_at": r["expires_at"],
             "created_at": r["created_at"],
         }
         for r in rows
@@ -336,6 +343,7 @@ def get_api_key_by_hash(key_hash: str) -> dict | None:
         "user_id": row["user_id"],
         "allowed_spaces": json.loads(row["allowed_spaces"]),
         "allowed_collections": json.loads(row["allowed_collections"]),
+        "expires_at": row["expires_at"],
     }
 
 

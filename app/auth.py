@@ -118,6 +118,10 @@ def _validate_api_key(raw_key: str) -> CurrentUser:
     if not key_row:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
+    expires_at = key_row.get("expires_at")
+    if expires_at and datetime.fromisoformat(expires_at) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="API key has expired")
+
     user = db.get_user_by_id(key_row["user_id"])
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -128,4 +132,5 @@ def _validate_api_key(raw_key: str) -> CurrentUser:
         allowed_spaces=key_row["allowed_spaces"],
         allowed_collections=key_row["allowed_collections"],
         is_api_key=True,
+        is_admin=bool(user.get("is_admin")),
     )
