@@ -8,6 +8,9 @@ async function checkAuth() {
   authEnabled = data.auth_enabled;
   if (authEnabled) {
     document.getElementById('logoutBtn').classList.remove('hidden');
+    if (!data.registration_enabled) {
+      document.getElementById('registerBtn').classList.add('hidden');
+    }
     if (!authToken) { showLoginPage(); return false; }
   }
   return true;
@@ -25,16 +28,24 @@ async function doLogin() {
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
   const err = document.getElementById('loginError');
+  const btn = document.getElementById('signInBtn');
   err.textContent = '';
-  const r = await fetch('/auth/login', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-  if (!r.ok) { err.textContent = 'Invalid username or password'; return; }
-  authToken = (await r.json()).access_token;
-  localStorage.setItem('locus_token', authToken);
-  hideLoginPage();
-  init();
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  try {
+    const r = await fetch('/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!r.ok) { err.textContent = 'Invalid username or password'; return; }
+    authToken = (await r.json()).access_token;
+    localStorage.setItem('locus_token', authToken);
+    hideLoginPage();
+    init();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
 }
 
 async function doRegister() {

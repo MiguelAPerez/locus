@@ -83,13 +83,13 @@ async def search_collection(
     full: bool = Query(False),
     user: CurrentUser = Depends(get_current_user),
 ):
+    if user.allowed_collections and name not in user.allowed_collections:
+        raise HTTPException(403, "API key does not grant access to this collection")
+
     try:
         collection = col.get_collection(name, user.id)
     except KeyError:
         raise HTTPException(404, f"Collection '{name}' not found")
-
-    if user.allowed_collections and name not in user.allowed_collections:
-        raise HTTPException(403, "API key does not grant access to this collection")
 
     member_spaces = [s for s in collection["spaces"] if sp.space_exists(s, username=user.username)]
     if user.allowed_spaces:

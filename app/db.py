@@ -1,8 +1,11 @@
 import sqlite3
 import os
+import re
 import uuid
 import json
 from datetime import datetime, timezone
+
+_SPACE_NAME_RE = re.compile(r'^[a-z0-9_-]{1,64}$')
 
 DB_PATH: str = ""  # overridden in tests; resolved lazily in _path()
 
@@ -144,6 +147,8 @@ def sync_guest_spaces(disk_spaces: list[str]):
     now = datetime.now(timezone.utc).isoformat()
     with _conn() as conn:
         for name in disk_spaces:
+            if not _SPACE_NAME_RE.match(name):
+                continue
             conn.execute(
                 "INSERT OR IGNORE INTO spaces (name, owner_id, created_at) VALUES (?,?,?)",
                 (name, "guest", now),
