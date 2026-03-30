@@ -25,6 +25,7 @@ class CurrentUser:
     allowed_spaces: list[str] = field(default_factory=list)
     allowed_collections: list[str] = field(default_factory=list)
     is_api_key: bool = False
+    is_admin: bool = False
 
 
 GUEST = CurrentUser(id="guest", username="guest")
@@ -53,6 +54,25 @@ def create_jwt(user_id: str, username: str) -> str:
     exp = datetime.now(timezone.utc) + timedelta(hours=config.session_hours())
     payload = {"sub": user_id, "username": username, "exp": exp}
     return jwt.encode(payload, _secret(), algorithm="HS256")
+
+
+def create_password_reset_token(user_id: str) -> str:
+    exp = datetime.now(timezone.utc) + timedelta(minutes=15)
+    payload = {"sub": user_id, "scope": "pwd_reset", "exp": exp}
+    return jwt.encode(payload, _secret(), algorithm="HS256")
+
+
+def validate_password_reset_token(token: str) -> str:
+    """Returns user_id or raises HTTPException."""
+    try:
+        payload = jwt.decode(token, _secret(), algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="Reset token has expired")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid reset token")
+    if payload.get("scope") != "pwd_reset":
+        raise HTTPException(status_code=400, detail="Invalid reset token")
+    return payload["sub"]
 
 
 def decode_jwt(token: str) -> dict:
@@ -89,7 +109,7 @@ def _validate_jwt(token: str) -> CurrentUser:
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    return CurrentUser(id=user["id"], username=user["username"])
+    return CurrentUser(id=user["id"], username=user["username"], is_admin=bool(user.get("is_admin")))
 
 
 def _validate_api_key(raw_key: str) -> CurrentUser:

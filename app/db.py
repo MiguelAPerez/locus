@@ -32,6 +32,7 @@ def init_db():
                 id TEXT PRIMARY KEY,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS spaces (
@@ -61,10 +62,15 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id)
             );
         """)
+        # Migration: add is_admin column to existing DBs
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+        except Exception:
+            pass  # column already exists
         now = datetime.now(timezone.utc).isoformat()
         conn.execute(
-            "INSERT OR IGNORE INTO users (id, username, password_hash, created_at) VALUES (?,?,?,?)",
-            ("guest", "guest", "", now),
+            "INSERT OR IGNORE INTO users (id, username, password_hash, is_admin, created_at) VALUES (?,?,?,?,?)",
+            ("guest", "guest", "", 0, now),
         )
         conn.commit()
 
@@ -76,14 +82,48 @@ def create_user(username: str, password_hash: str) -> str:
     now = datetime.now(timezone.utc).isoformat()
     try:
         with _conn() as conn:
+            # First non-guest user becomes admin
+            count = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE id != 'guest'"
+            ).fetchone()[0]
+            is_admin = 1 if count == 0 else 0
             conn.execute(
-                "INSERT INTO users (id, username, password_hash, created_at) VALUES (?,?,?,?)",
-                (uid, username, password_hash, now),
+                "INSERT INTO users (id, username, password_hash, is_admin, created_at) VALUES (?,?,?,?,?)",
+                (uid, username, password_hash, is_admin, now),
             )
             conn.commit()
     except sqlite3.IntegrityError:
         raise ValueError(f"User '{username}' already exists")
     return uid
+
+
+def list_all_users() -> list[dict]:
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT id, username, is_admin, created_at FROM users WHERE id != 'guest' ORDER BY created_at"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def update_password(user_id: str, password_hash: str):
+    with _conn() as conn:
+        conn.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
+        conn.commit()
+
+
+def set_admin(user_id: str, is_admin: bool):
+    with _conn() as conn:
+        conn.execute("UPDATE users SET is_admin=? WHERE id=?", (1 if is_admin else 0, user_id))
+        conn.commit()
+
+
+def delete_user(user_id: str):
+    with _conn() as conn:
+        conn.execute("DELETE FROM api_keys WHERE user_id=?", (user_id,))
+        conn.execute("DELETE FROM collections WHERE owner_id=?", (user_id,))
+        conn.execute("DELETE FROM spaces WHERE owner_id=?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+        conn.commit()
 
 
 def get_user_by_username(username: str) -> dict | None:

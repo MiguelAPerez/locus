@@ -1,6 +1,8 @@
 // -- Auth state -------------------------------------------------------------
 let authToken = localStorage.getItem('locus_token') || null;
 let authEnabled = false;
+let isAdmin = false;
+let isApiKeyAuth = false;
 
 async function checkAuth() {
   const r = await fetch('/auth/status');
@@ -12,16 +14,58 @@ async function checkAuth() {
       document.getElementById('registerBtn').classList.add('hidden');
     }
     if (!authToken) { showLoginPage(); return false; }
+    try {
+      const me = await api('GET', '/auth/me');
+      isAdmin = me.is_admin || false;
+      isApiKeyAuth = me.is_api_key || false;
+    } catch (_) {
+      return false; // api() already redirected to login
+    }
   }
   return true;
 }
 
 function showLoginPage() {
+  showSignInForm();
   document.getElementById('loginPage').classList.remove('hidden');
 }
 
 function hideLoginPage() {
   document.getElementById('loginPage').classList.add('hidden');
+}
+
+function showSignInForm() {
+  document.getElementById('loginSignInForm').classList.remove('hidden');
+  document.getElementById('loginResetForm').classList.add('hidden');
+  document.getElementById('loginError').textContent = '';
+}
+
+function showResetTokenForm() {
+  document.getElementById('loginSignInForm').classList.add('hidden');
+  document.getElementById('loginResetForm').classList.remove('hidden');
+  document.getElementById('resetError').textContent = '';
+}
+
+async function doResetPassword() {
+  const token = document.getElementById('resetTokenInput').value.trim();
+  const newPassword = document.getElementById('resetNewPassword').value;
+  const err = document.getElementById('resetError');
+  err.textContent = '';
+  if (!token) { err.textContent = 'Paste your reset token'; return; }
+  const r = await fetch('/auth/reset-password', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  if (r.status === 400) {
+    const d = await r.json().catch(() => ({}));
+    err.textContent = d.detail || 'Invalid or expired token';
+    return;
+  }
+  if (!r.ok) { err.textContent = 'Reset failed'; return; }
+  // Password changed — log in with new password
+  document.getElementById('loginPassword').value = newPassword;
+  showSignInForm();
+  document.getElementById('loginError').textContent = 'Password updated — sign in with your new password';
 }
 
 async function doLogin() {
@@ -67,6 +111,78 @@ function doLogout() {
   authToken = null;
   localStorage.removeItem('locus_token');
   if (authEnabled) showLoginPage();
+}
+
+// -- Change password --------------------------------------------------------
+async function changePassword() {
+  const current = document.getElementById('currentPassword').value;
+  const next = document.getElementById('newPassword').value;
+  const status = document.getElementById('changePasswordStatus');
+  status.innerHTML = '';
+  try {
+    await api('POST', '/auth/change-password', { current_password: current, new_password: next });
+    document.getElementById('currentPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    status.innerHTML = `<span class="${STATUS_OK}">Password updated.</span>`;
+  } catch (e) {
+    status.innerHTML = `<span class="${STATUS_ERR}">${esc(e.message)}</span>`;
+  }
+}
+
+// -- Users panel (admin) ----------------------------------------------------
+async function loadUsers() {
+  if (!authEnabled || !isAdmin) return;
+  document.getElementById('usersSection').classList.remove('hidden');
+  const { users } = await api('GET', '/auth/users');
+  const list = document.getElementById('usersList');
+  list.innerHTML = users.map(u => {
+    const isSelf = u.username === (document.getElementById('logoutBtn') ? '__self__' : '');
+    return `
+    <div class="flex items-center justify-between text-xs py-1 gap-2">
+      <span class="text-text flex-1">${esc(u.username)}${u.is_admin ? ' <span class="text-accent">[admin]</span>' : ''}</span>
+      <button onclick="resetUserPassword('${esc(u.id)}')" class="text-muted hover:text-accent hover:underline">Reset</button>
+      <button onclick="toggleAdmin('${esc(u.id)}', ${u.is_admin})" class="text-muted hover:text-accent2 hover:underline">${u.is_admin ? 'Demote' : 'Promote'}</button>
+      <button onclick="deleteUser('${esc(u.id)}')" class="text-danger hover:opacity-85 ml-1">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function resetUserPassword(userId) {
+  try {
+    const { reset_token } = await api('POST', `/auth/users/${userId}/reset-password`);
+    document.getElementById('resetTokenValue').textContent = reset_token;
+    document.getElementById('resetTokenDisplay').classList.remove('hidden');
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function toggleAdmin(userId, currentlyAdmin) {
+  try {
+    await api('POST', `/auth/users/${userId}/${currentlyAdmin ? 'demote' : 'promote'}`);
+    loadUsers();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function deleteUser(userId) {
+  if (!confirm('Delete this user? Their data will remain on disk.')) return;
+  try {
+    await api('DELETE', `/auth/users/${userId}`);
+    loadUsers();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+function copyResetToken() {
+  navigator.clipboard.writeText(document.getElementById('resetTokenValue').textContent);
+}
+
+function dismissResetToken() {
+  document.getElementById('resetTokenDisplay').classList.add('hidden');
+  document.getElementById('resetTokenValue').textContent = '';
 }
 
 // -- API keys panel ---------------------------------------------------------
@@ -483,6 +599,13 @@ function esc(s) {
 
 async function openSettings() {
   loadApiKeys().catch(() => {});
+  if (authEnabled && !isApiKeyAuth) {
+    document.getElementById('changePasswordSection').classList.remove('hidden');
+    document.getElementById('changePasswordStatus').innerHTML = '';
+    document.getElementById('currentPassword').value = '';
+    document.getElementById('newPassword').value = '';
+  }
+  if (authEnabled && isAdmin) loadUsers().catch(() => {});
   let s;
   try {
     s = await api('GET', '/settings');

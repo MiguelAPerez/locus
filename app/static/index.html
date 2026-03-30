@@ -67,6 +67,17 @@
 
     <div id="settingsStatus"></div>
 
+    <!-- Change Password (shown when auth enabled + JWT session) -->
+    <div id="changePasswordSection" class="hidden flex flex-col gap-3 border-t border-border pt-4">
+      <h3 class="text-xs text-muted uppercase tracking-[0.08em]">Change Password</h3>
+      <input id="currentPassword" type="password" placeholder="Current password"
+        class="bg-bg border border-border rounded px-2.5 py-1.5 text-text text-xs outline-none focus:border-accent" />
+      <input id="newPassword" type="password" placeholder="New password (min 8 chars)"
+        class="bg-bg border border-border rounded px-2.5 py-1.5 text-text text-xs outline-none focus:border-accent" />
+      <button onclick="changePassword()" class="bg-accent text-white border-none rounded px-3 py-1.5 text-xs font-semibold cursor-pointer hover:opacity-85">Update password</button>
+      <div id="changePasswordStatus"></div>
+    </div>
+
     <!-- API Keys (shown only when auth enabled) -->
     <div id="apiKeysSection" class="hidden flex flex-col gap-3 border-t border-border pt-4">
       <h3 class="text-xs text-muted uppercase tracking-[0.08em]">API Keys</h3>
@@ -86,22 +97,57 @@
         </div>
       </div>
     </div>
+
+    <!-- Users (admin only) -->
+    <div id="usersSection" class="hidden flex flex-col gap-3 border-t border-border pt-4">
+      <h3 class="text-xs text-muted uppercase tracking-[0.08em]">Users</h3>
+      <div id="usersList" class="flex flex-col gap-1.5"></div>
+      <div id="resetTokenDisplay" class="hidden bg-bg border border-border rounded p-3 flex flex-col gap-2">
+        <p class="text-xs text-muted">Share this token — valid for 15 minutes, shown once:</p>
+        <code id="resetTokenValue" class="text-xs break-all text-accent2"></code>
+        <div class="flex gap-2">
+          <button onclick="copyResetToken()" class="text-xs text-accent hover:underline">Copy</button>
+          <button onclick="dismissResetToken()" class="text-xs text-muted hover:underline">Done</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- Login Page -->
-<div id="loginPage" class="hidden fixed inset-0 z-[200] bg-bg flex items-center justify-center">
-  <div class="bg-surface border border-border rounded-xl shadow-lg p-8 w-full max-w-sm flex flex-col gap-4">
+<div id="loginPage" class="hidden fixed inset-0 bg-bg flex items-center justify-center" style="z-index:200">
+  <div class="bg-surface border border-border rounded px-8 py-6 w-[360px] flex flex-col gap-4">
     <h2 class="text-xl font-bold text-center">Lo<span class="text-accent">cus</span></h2>
-    <input id="loginUsername" type="text" placeholder="Username" autocomplete="username"
-      class="bg-bg border border-border rounded px-3 py-2 text-text text-sm outline-none focus:border-accent"
-      onkeydown="if(event.key==='Enter') doLogin()" />
-    <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password"
-      class="bg-bg border border-border rounded px-3 py-2 text-text text-sm outline-none focus:border-accent"
-      onkeydown="if(event.key==='Enter') doLogin()" />
-    <p id="loginError" class="text-red-400 text-xs min-h-[1rem]"></p>
-    <button id="signInBtn" onclick="doLogin()" class="bg-accent text-white border-none rounded px-4 py-2 text-sm font-semibold cursor-pointer hover:opacity-85 disabled:opacity-50 disabled:cursor-not-allowed">Sign in</button>
-    <button id="registerBtn" onclick="doRegister()" class="bg-surface border border-border text-text rounded px-4 py-2 text-sm cursor-pointer hover:opacity-85">Create account</button>
+
+    <!-- Sign-in form -->
+    <div id="loginSignInForm" class="flex flex-col gap-4">
+      <input id="loginUsername" type="text" placeholder="Username" autocomplete="username"
+        class="bg-bg border border-border rounded px-3 py-2 text-text text-sm outline-none focus:border-accent"
+        onkeydown="if(event.key==='Enter') doLogin()" />
+      <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password"
+        class="bg-bg border border-border rounded px-3 py-2 text-text text-sm outline-none focus:border-accent"
+        onkeydown="if(event.key==='Enter') doLogin()" />
+      <p id="loginError" class="text-danger text-xs min-h-[1rem]"></p>
+      <button id="signInBtn" onclick="doLogin()"
+        class="bg-accent text-white border-none rounded px-4 py-2 text-sm font-semibold cursor-pointer hover:opacity-85">Sign in</button>
+      <button id="registerBtn" onclick="doRegister()"
+        class="bg-surface border border-border text-text rounded px-4 py-2 text-sm cursor-pointer hover:opacity-85">Create account</button>
+      <button onclick="showResetTokenForm()" class="text-xs text-muted hover:text-accent hover:underline transition-colors text-center">Use reset token</button>
+    </div>
+
+    <!-- Reset-token form -->
+    <div id="loginResetForm" class="hidden flex-col gap-4">
+      <p class="text-xs text-muted text-center">Enter your reset token and choose a new password</p>
+      <input id="resetTokenInput" type="text" placeholder="Reset token"
+        class="bg-bg border border-border rounded px-3 py-2 text-text text-sm outline-none focus:border-accent font-mono" />
+      <input id="resetNewPassword" type="password" placeholder="New password"
+        class="bg-bg border border-border rounded px-3 py-2 text-text text-sm outline-none focus:border-accent"
+        onkeydown="if(event.key==='Enter') doResetPassword()" />
+      <p id="resetError" class="text-danger text-xs min-h-[1rem]"></p>
+      <button onclick="doResetPassword()"
+        class="bg-accent text-white border-none rounded px-4 py-2 text-sm font-semibold cursor-pointer hover:opacity-85">Set new password</button>
+      <button onclick="showSignInForm()" class="text-xs text-muted hover:text-accent hover:underline transition-colors text-center">Back to sign in</button>
+    </div>
   </div>
 </div>
 

@@ -94,3 +94,50 @@ def test_delete_api_key():
     kid = db.create_api_key(uid, "my-key", "hashed_secret", "lcs_abcd", [], [])
     db.delete_api_key(kid, uid)
     assert not any(k["id"] == kid for k in db.list_api_keys(uid))
+
+
+def test_first_user_is_admin():
+    uid = db.create_user("alice", "pw")
+    user = db.get_user_by_id(uid)
+    assert user["is_admin"] == 1
+
+
+def test_second_user_is_not_admin():
+    db.create_user("alice", "pw")
+    uid2 = db.create_user("bob", "pw")
+    user = db.get_user_by_id(uid2)
+    assert user["is_admin"] == 0
+
+
+def test_set_admin():
+    uid = db.create_user("alice", "pw")
+    db.set_admin(uid, True)
+    assert db.get_user_by_id(uid)["is_admin"] == 1
+    db.set_admin(uid, False)
+    assert db.get_user_by_id(uid)["is_admin"] == 0
+
+
+def test_list_all_users_excludes_guest():
+    db.create_user("alice", "pw")
+    db.create_user("bob", "pw")
+    users = db.list_all_users()
+    assert len(users) == 2
+    assert all(u["id"] != "guest" for u in users)
+
+
+def test_update_password():
+    uid = db.create_user("alice", "old_hash")
+    db.update_password(uid, "new_hash")
+    user = db.get_user_by_id(uid)
+    assert user["password_hash"] == "new_hash"
+
+
+def test_delete_user_cascades():
+    uid = db.create_user("alice", "pw")
+    db.register_space("notes", uid)
+    db.create_collection("research", uid)
+    db.create_api_key(uid, "k", "h", "lcs_", [], [])
+    db.delete_user(uid)
+    assert db.get_user_by_id(uid) is None
+    assert db.list_spaces_for_user(uid) == []
+    assert db.list_api_keys(uid) == []

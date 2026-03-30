@@ -165,3 +165,120 @@ def test_api_key_space_scope_enforced(auth_client):
 
     r3 = auth_client.get("/spaces/blocked/documents", headers=key_headers)
     assert r3.status_code == 403
+
+
+def test_first_user_is_admin(auth_client):
+    _register(auth_client, "alice")
+    token = _login(auth_client, "alice").json()["access_token"]
+    r = auth_client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert r.json()["is_admin"] is True
+
+
+def test_second_user_is_not_admin(auth_client):
+    _token(auth_client, "alice")
+    _register(auth_client, "bob")
+    token_b = _login(auth_client, "bob").json()["access_token"]
+    r = auth_client.get("/auth/me", headers={"Authorization": f"Bearer {token_b}"})
+    assert r.json()["is_admin"] is False
+
+
+def test_change_password(auth_client):
+    token = _token(auth_client)
+    headers = {"Authorization": f"Bearer {token}"}
+    r = auth_client.post(
+        "/auth/change-password",
+        json={"current_password": "password123", "new_password": "newpassword456"},
+        headers=headers,
+    )
+    assert r.status_code == 204
+    r2 = _login(auth_client, password="newpassword456")
+    assert r2.status_code == 200
+
+
+def test_change_password_wrong_current(auth_client):
+    token = _token(auth_client)
+    headers = {"Authorization": f"Bearer {token}"}
+    r = auth_client.post(
+        "/auth/change-password",
+        json={"current_password": "wrongpass", "new_password": "newpassword456"},
+        headers=headers,
+    )
+    assert r.status_code == 400
+
+
+def test_admin_can_list_users(auth_client):
+    token = _token(auth_client)  # alice = first user = admin
+    r = auth_client.get("/auth/users", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    assert any(u["username"] == "alice" for u in r.json()["users"])
+
+
+def test_nonadmin_cannot_list_users(auth_client):
+    _token(auth_client, "alice")  # alice = admin
+    _register(auth_client, "bob")
+    token_b = _login(auth_client, "bob").json()["access_token"]
+    r = auth_client.get("/auth/users", headers={"Authorization": f"Bearer {token_b}"})
+    assert r.status_code == 403
+
+
+def test_admin_can_reset_and_use_token(auth_client):
+    admin_token = _token(auth_client, "alice")
+    _register(auth_client, "bob")
+    bob_id = auth_client.get(
+        "/auth/users", headers={"Authorization": f"Bearer {admin_token}"}
+    ).json()["users"][1]["id"]
+
+    r = auth_client.post(
+        f"/auth/users/{bob_id}/reset-password",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert r.status_code == 200
+    reset_token = r.json()["reset_token"]
+
+    r2 = auth_client.post(
+        "/auth/reset-password",
+        json={"token": reset_token, "new_password": "brand_new_pass"},
+    )
+    assert r2.status_code == 204
+    assert _login(auth_client, "bob", "brand_new_pass").status_code == 200
+
+
+def test_admin_cannot_delete_self(auth_client):
+    token = _token(auth_client)
+    from app import db as _db
+    uid = _db.get_user_by_username("alice")["id"]
+    r = auth_client.delete(f"/auth/users/{uid}", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 400
+
+
+def test_admin_can_delete_user(auth_client):
+    admin_token = _token(auth_client, "alice")
+    _register(auth_client, "bob")
+    bob_id = auth_client.get(
+        "/auth/users", headers={"Authorization": f"Bearer {admin_token}"}
+    ).json()["users"][1]["id"]
+    r = auth_client.delete(f"/auth/users/{bob_id}", headers={"Authorization": f"Bearer {admin_token}"})
+    assert r.status_code == 204
+
+
+def test_promote_and_demote(auth_client):
+    admin_token = _token(auth_client, "alice")
+    _register(auth_client, "bob")
+    bob_id = auth_client.get(
+        "/auth/users", headers={"Authorization": f"Bearer {admin_token}"}
+    ).json()["users"][1]["id"]
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    r = auth_client.post(f"/auth/users/{bob_id}/promote", headers=headers)
+    assert r.status_code == 204
+
+    r2 = auth_client.post(f"/auth/users/{bob_id}/demote", headers=headers)
+    assert r2.status_code == 204
+
+
+def test_admin_cannot_demote_self(auth_client):
+    token = _token(auth_client)
+    from app import db as _db
+    uid = _db.get_user_by_username("alice")["id"]
+    r = auth_client.post(f"/auth/users/{uid}/demote", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 400
