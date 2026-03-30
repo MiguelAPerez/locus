@@ -1,44 +1,47 @@
 import os
 import uuid
 import json
+import shutil
+import glob
 import aiofiles
 
 DATA_DIR = os.getenv("DATA_DIR", "./data")
+GUEST_USER = "guest"
 
 
-def _space_dir(space: str) -> str:
-    return os.path.join(DATA_DIR, space)
+def _space_dir(space: str, username: str = GUEST_USER) -> str:
+    return os.path.join(DATA_DIR, username, space)
 
 
-def _assets_dir(space: str) -> str:
-    return os.path.join(_space_dir(space), "assets")
+def _assets_dir(space: str, username: str = GUEST_USER) -> str:
+    return os.path.join(_space_dir(space, username), "assets")
 
 
-def _meta_path(space: str, doc_id: str) -> str:
-    return os.path.join(_assets_dir(space), f"{doc_id}.json")
+def _meta_path(space: str, doc_id: str, username: str = GUEST_USER) -> str:
+    return os.path.join(_assets_dir(space, username), f"{doc_id}.json")
 
 
-def _raw_path(space: str, doc_id: str) -> str:
-    return os.path.join(_assets_dir(space), f"{doc_id}.txt")
+def _raw_path(space: str, doc_id: str, username: str = GUEST_USER) -> str:
+    return os.path.join(_assets_dir(space, username), f"{doc_id}.txt")
 
 
-def space_exists(space: str) -> bool:
-    return os.path.isdir(_space_dir(space))
+def space_exists(space: str, username: str = GUEST_USER) -> bool:
+    return os.path.isdir(_space_dir(space, username))
 
 
-def list_spaces() -> list[str]:
-    if not os.path.isdir(DATA_DIR):
+def list_spaces(username: str = GUEST_USER) -> list[str]:
+    user_dir = os.path.join(DATA_DIR, username)
+    if not os.path.isdir(user_dir):
         return []
-    return [d for d in os.listdir(DATA_DIR) if os.path.isdir(os.path.join(DATA_DIR, d))]
+    return [d for d in os.listdir(user_dir) if os.path.isdir(os.path.join(user_dir, d))]
 
 
-def create_space(space: str):
-    os.makedirs(_assets_dir(space), exist_ok=True)
+def create_space(space: str, username: str = GUEST_USER):
+    os.makedirs(_assets_dir(space, username), exist_ok=True)
 
 
-def delete_space_dir(space: str):
-    import shutil
-    path = _space_dir(space)
+def delete_space_dir(space: str, username: str = GUEST_USER):
+    path = _space_dir(space, username)
     if os.path.isdir(path):
         shutil.rmtree(path)
 
@@ -57,17 +60,17 @@ def chunk_text(text: str, size: int = 512, overlap: int = 64) -> list[str]:
     return chunks or [text]
 
 
-async def save_document(space: str, doc_id: str, text: str, meta: dict):
-    os.makedirs(_assets_dir(space), exist_ok=True)
-    async with aiofiles.open(_raw_path(space, doc_id), "w") as f:
+async def save_document(space: str, doc_id: str, text: str, meta: dict, username: str = GUEST_USER):
+    os.makedirs(_assets_dir(space, username), exist_ok=True)
+    async with aiofiles.open(_raw_path(space, doc_id, username), "w") as f:
         await f.write(text)
-    async with aiofiles.open(_meta_path(space, doc_id), "w") as f:
+    async with aiofiles.open(_meta_path(space, doc_id, username), "w") as f:
         await f.write(json.dumps(meta))
 
 
-async def load_document(space: str, doc_id: str) -> dict | None:
-    raw = _raw_path(space, doc_id)
-    meta = _meta_path(space, doc_id)
+async def load_document(space: str, doc_id: str, username: str = GUEST_USER) -> dict | None:
+    raw = _raw_path(space, doc_id, username)
+    meta = _meta_path(space, doc_id, username)
     if not os.path.exists(raw):
         return None
     async with aiofiles.open(raw) as f:
@@ -77,15 +80,33 @@ async def load_document(space: str, doc_id: str) -> dict | None:
     return {"doc_id": doc_id, "text": text, "metadata": metadata}
 
 
-async def save_original_file(space: str, doc_id: str, content: bytes, filename: str):
+async def save_original_file(space: str, doc_id: str, content: bytes, filename: str, username: str = GUEST_USER):
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
-    path = os.path.join(_assets_dir(space), f"{doc_id}.{ext}")
+    path = os.path.join(_assets_dir(space, username), f"{doc_id}.{ext}")
     async with aiofiles.open(path, "wb") as f:
         await f.write(content)
 
 
-def delete_document_files(space: str, doc_id: str):
-    import glob
-    pattern = os.path.join(_assets_dir(space), f"{doc_id}.*")
+def delete_document_files(space: str, doc_id: str, username: str = GUEST_USER):
+    pattern = os.path.join(_assets_dir(space, username), f"{doc_id}.*")
     for path in glob.glob(pattern):
         os.remove(path)
+
+
+def migrate_flat_spaces():
+    """Move legacy flat space dirs into guest/ subdirectory."""
+    if not os.path.isdir(DATA_DIR):
+        return
+    guest_dir = os.path.join(DATA_DIR, GUEST_USER)
+    os.makedirs(guest_dir, exist_ok=True)
+    skip = {GUEST_USER, "auth.db", "settings.json", "collections.json"}
+    for entry in os.listdir(DATA_DIR):
+        if entry in skip:
+            continue
+        src = os.path.join(DATA_DIR, entry)
+        # Only migrate dirs that contain a chroma subdir — these are legacy spaces.
+        # User dirs (e.g. alice/) contain space subdirs, not chroma directly.
+        if os.path.isdir(src) and os.path.isdir(os.path.join(src, "chroma")):
+            dest = os.path.join(guest_dir, entry)
+            if not os.path.exists(dest):
+                shutil.move(src, dest)

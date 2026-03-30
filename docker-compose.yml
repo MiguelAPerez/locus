@@ -9,7 +9,12 @@ services:
     environment:
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
       - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
-      - DATA_DIR=/data
+      - AUTH_ENABLED=true
+      - REGISTRATION_ENABLED=true
+      - INITIAL_ADMIN_USERNAME=${INITIAL_ADMIN_USERNAME:-admin}
+      - INITIAL_ADMIN_PASSWORD=${INITIAL_ADMIN_PASSWORD:-password1}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-not-used-when-auth-disabled}
+      # - DATA_DIR=/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

@@ -40,3 +40,40 @@ def test_delete_space(client):
 def test_delete_nonexistent_space(client):
     r = client.delete("/spaces/ghost")
     assert r.status_code == 404
+
+
+def test_space_path_defaults_to_guest(tmp_data_dir):
+    import app.spaces as s
+    path = s._space_dir("notes")
+    assert path == str(tmp_data_dir / "guest" / "notes")
+
+
+def test_space_path_with_username(tmp_data_dir):
+    import app.spaces as s
+    path = s._space_dir("notes", username="alice")
+    assert path == str(tmp_data_dir / "alice" / "notes")
+
+
+def test_create_space_under_username(tmp_data_dir):
+    import app.spaces as s
+    s.create_space("notes", username="alice")
+    assert (tmp_data_dir / "alice" / "notes" / "assets").is_dir()
+
+
+def test_space_exists_with_username(tmp_data_dir):
+    import app.spaces as s
+    s.create_space("notes", username="alice")
+    assert s.space_exists("notes", username="alice")
+    assert not s.space_exists("notes", username="bob")
+
+
+def test_migrate_flat_spaces(tmp_data_dir):
+    import app.spaces as s
+    # Create flat legacy dirs (must contain chroma/ to be recognised as spaces)
+    (tmp_data_dir / "old_space" / "chroma").mkdir(parents=True)
+    (tmp_data_dir / "another" / "chroma").mkdir(parents=True)
+    s.migrate_flat_spaces()
+    assert (tmp_data_dir / "guest" / "old_space").is_dir()
+    assert (tmp_data_dir / "guest" / "another").is_dir()
+    assert not (tmp_data_dir / "old_space").exists()
+    assert not (tmp_data_dir / "another").exists()

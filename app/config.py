@@ -65,3 +65,26 @@ def save_settings(ollama_url: str | None, embed_model: str | None):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         json.dump(saved, f)
+
+
+def auth_enabled() -> bool:
+    return os.getenv("AUTH_ENABLED", "false").lower() == "true"
+
+
+def registration_enabled() -> bool:
+    return os.getenv("REGISTRATION_ENABLED", "false").lower() == "true"
+
+
+def session_hours() -> int:
+    try:
+        return int(os.getenv("SESSION_HOURS", "24"))
+    except ValueError:
+        return 24
+
+
+def get_initial_admin_username() -> str | None:
+    return os.getenv("INITIAL_ADMIN_USERNAME")
+
+
+def get_initial_admin_password() -> str | None:
+    return os.getenv("INITIAL_ADMIN_PASSWORD")
