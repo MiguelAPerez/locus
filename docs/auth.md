@@ -104,7 +104,6 @@ curl http://localhost:8000/spaces \
 
 ### Key restrictions
 
-- API keys **cannot** create or delete spaces/collections (only access them).
 - API keys **cannot** modify settings.
 - API keys **cannot** create, list, or delete other API keys.
 - API keys **cannot** perform admin actions.
