@@ -83,9 +83,20 @@
       <h3 class="text-xs text-muted uppercase tracking-[0.08em]">API Keys</h3>
       <div id="apiKeysList" class="flex flex-col gap-1.5"></div>
       <button onclick="showCreateKeyForm()" class="text-xs text-accent hover:underline text-left">+ New key</button>
-      <div id="createKeyForm" class="hidden flex flex-col gap-2">
+      <div id="createKeyForm" class="hidden flex flex-col gap-3">
         <input id="newKeyName" type="text" placeholder="Key name"
           class="bg-bg border border-border rounded px-2.5 py-1.5 text-text text-xs outline-none focus:border-accent" />
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[0.65rem] text-muted uppercase tracking-wider font-semibold">Allowed Spaces <span class="normal-case font-normal">(none = all)</span></label>
+          <div id="newKeySpacesList" class="flex flex-col gap-1 max-h-[100px] overflow-y-auto border border-border/50 rounded p-1.5 bg-black/10"></div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[0.65rem] text-muted uppercase tracking-wider font-semibold">Allowed Collections <span class="normal-case font-normal">(none = all)</span></label>
+          <div id="newKeyCollectionsList" class="flex flex-col gap-1 max-h-[100px] overflow-y-auto border border-border/50 rounded p-1.5 bg-black/10"></div>
+        </div>
+
         <button onclick="createApiKey()" class="bg-accent text-white border-none rounded px-3 py-1.5 text-xs font-semibold cursor-pointer hover:opacity-85">Create</button>
       </div>
       <div id="newKeyDisplay" class="hidden bg-bg border border-border rounded p-3 flex flex-col gap-2">

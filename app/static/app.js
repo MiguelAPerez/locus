@@ -198,18 +198,50 @@ async function loadApiKeys() {
     </div>`).join('');
 }
 
-function showCreateKeyForm() {
+async function showCreateKeyForm() {
   document.getElementById('createKeyForm').classList.remove('hidden');
+  const spacesList = document.getElementById('newKeySpacesList');
+  const collsList = document.getElementById('newKeyCollectionsList');
+  spacesList.innerHTML = '<span class="text-[0.65rem] text-muted">Loading…</span>';
+  collsList.innerHTML = '<span class="text-[0.65rem] text-muted">Loading…</span>';
+
+  try {
+    const [{ spaces }, { collections }] = await Promise.all([
+      api('GET', '/spaces'),
+      api('GET', '/collections')
+    ]);
+
+    const renderBox = (name, type) => `
+      <label class="flex items-center gap-2 hover:bg-white/5 px-1 rounded cursor-pointer group">
+        <input type="checkbox" name="newKey${type}" value="${esc(name)}" class="accent-accent w-3 h-3" />
+        <span class="text-[0.8rem] text-text/80 group-hover:text-text truncate">${esc(name)}</span>
+      </label>`;
+
+    spacesList.innerHTML = spaces.length ? spaces.map(s => renderBox(s, 'Space')).join('') : '<span class="text-[0.65rem] text-muted p-1">No spaces found.</span>';
+    collsList.innerHTML = collections.length ? collections.map(c => renderBox(c, 'Coll')).join('') : '<span class="text-[0.65rem] text-muted p-1">No collections found.</span>';
+  } catch (e) {
+    spacesList.innerHTML = collsList.innerHTML = `<span class="text-danger text-[0.65rem] p-1">${esc(e.message)}</span>`;
+  }
 }
 
 async function createApiKey() {
-  const name = document.getElementById('newKeyName').value.trim();
+  const nameInput = document.getElementById('newKeyName');
+  const name = nameInput.value.trim();
   if (!name) return;
-  const data = await api('POST', '/auth/keys', { name, allowed_spaces: [], allowed_collections: [] });
-  document.getElementById('createKeyForm').classList.add('hidden');
-  document.getElementById('newKeyValue').textContent = data.key;
-  document.getElementById('newKeyDisplay').classList.remove('hidden');
-  loadApiKeys();
+
+  const allowed_spaces = Array.from(document.querySelectorAll('input[name="newKeySpace"]:checked')).map(cb => cb.value);
+  const allowed_collections = Array.from(document.querySelectorAll('input[name="newKeyColl"]:checked')).map(cb => cb.value);
+
+  try {
+    const data = await api('POST', '/auth/keys', { name, allowed_spaces, allowed_collections });
+    document.getElementById('createKeyForm').classList.add('hidden');
+    document.getElementById('newKeyValue').textContent = data.key;
+    document.getElementById('newKeyDisplay').classList.remove('hidden');
+    nameInput.value = '';
+    loadApiKeys();
+  } catch (e) {
+    alert(e.message);
+  }
 }
 
 async function deleteApiKey(id) {

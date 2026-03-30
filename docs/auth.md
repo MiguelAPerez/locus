@@ -9,7 +9,7 @@ Locus ships with an optional auth system. When disabled (the default), all reque
 | `AUTH_ENABLED` | `false` | Enable auth. Set to `true` to require login. |
 | `REGISTRATION_ENABLED` | `false` | Allow new users to self-register. Set to `true` to enable. |
 | `SECRET_KEY` | *(none)* | **Required** when `AUTH_ENABLED=true`. Use a long random string. |
-| `SESSION_HOURS` | `24` | How long a JWT session lasts. |
+| `SESSION_HOURS` | `24` | How long a web (JWT) session lasts. |
 
 ### Generating a secret key
 
@@ -41,7 +41,7 @@ curl -X POST http://localhost:8000/auth/register \
 
 **The first registered user automatically becomes an admin.**
 
-3. Log in to get a session token:
+1. Log in to get a session token:
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
@@ -50,7 +50,7 @@ TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 ```
 
-4. Use the token on all requests:
+1. Use the token on all requests:
 
 ```bash
 curl http://localhost:8000/spaces -H "Authorization: Bearer $TOKEN"
