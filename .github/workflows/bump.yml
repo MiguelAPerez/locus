@@ -1,0 +1,68 @@
+name: Bump Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: "Force increment type (leave blank for auto-detect)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - patch
+          - minor
+          - major
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install commitizen
+        run: pip install commitizen==4.4.1
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        run: |
+          INCREMENT=${{ github.event.inputs.increment }}
+          if [ -n "$INCREMENT" ]; then
+            cz bump --yes --increment "$INCREMENT"
+          else
+            cz bump --yes
+          fi
+        continue-on-error: true
+
+      - name: Check if bump occurred
+        id: check
+        run: |
+          if git diff --quiet HEAD~1 HEAD -- pyproject.toml 2>/dev/null; then
+            echo "bumped=false" >> $GITHUB_OUTPUT
+          else
+            echo "bumped=true" >> $GITHUB_OUTPUT
+            echo "version=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push commit and tag
+        if: steps.check.outputs.bumped == 'true'
+        run: git push --follow-tags origin ${{ github.ref_name }}
+
+      - name: No changes
+        if: steps.check.outputs.bumped == 'false'
+        run: echo "No commits warrant a version bump. Nothing to do."
