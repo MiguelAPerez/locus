@@ -1,3 +1,10 @@
+## v0.4.0 (2026-04-03)
+
+### Feat
+
+- **auth**: add optional per-user auth system (#4)
+- **collections**: group spaces and search across them (#3)
+
 ## v0.3.1 (2026-03-21)
 
 ### Fix
