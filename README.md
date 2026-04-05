@@ -20,6 +20,7 @@ Locus pairs with any [Ollama](https://ollama.com) instance for local embeddings,
 - **PDF extraction** — text layer extracted via pypdf
 - **Image OCR** — text extracted from images via Tesseract
 - **Audio transcription** — speech-to-text via Whisper (runs locally)
+- **Optional auth** — per-user login, API keys, and admin controls (disabled by default)
 - **Web UI** — dark-themed single-page interface served at `/`
 - **Curl-friendly** — every operation is a plain HTTP call, no SDK required
 - **Containerized** — single Docker image, connects to your existing Ollama instance
@@ -82,6 +83,8 @@ All configuration is via environment variables (or `.env`):
 | `DATA_DIR` | `/data` | Root directory for spaces and assets |
 | `MAX_UPLOAD_MB` | `100` | Maximum file upload size in megabytes |
 | `LOCUS_PORT` | `8000` | Host port (Docker only) |
+
+Auth is disabled by default — all requests run as a built-in `guest` user. See [docs/auth.md](docs/auth.md) to enable per-user login, API keys, and admin controls.
 
 Make sure the embedding model is already pulled in your Ollama instance:
 
@@ -209,7 +212,8 @@ The release workflow builds and pushes the Docker image to `ghcr.io/miguelaperez
 │   ├── ci.yml           # Run tests on push / PR
 │   └── release.yml      # Build & push Docker image on tag
 ├── docs/
-│   └── architecture.md  # System design and data flow
+│   ├── architecture.md  # System design and data flow
+│   └── auth.md          # Auth setup and API reference
 ├── Dockerfile
 ├── docker-compose.yml
 ├── pyproject.toml       # Commitizen config & version
