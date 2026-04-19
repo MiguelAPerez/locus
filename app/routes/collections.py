@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
+from typing import Literal
 
 from app import embeddings, store, spaces as sp, collections as col
 from app.auth import get_current_user, CurrentUser
@@ -79,7 +80,7 @@ async def search_collection(
     q: str = Query(..., description="Search query"),
     k: int = Query(5, ge=1, le=500),
     full: bool = Query(False),
-    mode: str = Query("semantic", description="Search mode: 'semantic' or 'regex'"),
+    mode: Literal["semantic", "regex"] = Query("semantic", description="Search mode: 'semantic' or 'regex'"),
     user: CurrentUser = Depends(get_current_user),
 ):
     if user.allowed_collections and name not in user.allowed_collections:
@@ -100,12 +101,13 @@ async def search_collection(
         merged = []
         for space_name in member_spaces:
             try:
-                results = store.regex_search(space_name, q, username=user.username)
+                results = store.regex_search(space_name, q, k=k, username=user.username)
                 for r in results:
                     r["space"] = space_name
                 merged.extend(results)
             except ValueError as e:
                 raise HTTPException(400, str(e))
+        merged = merged[:k]
     else:
         try:
             vector = await embeddings.embed(q)

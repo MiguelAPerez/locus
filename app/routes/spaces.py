@@ -1,7 +1,7 @@
 import re
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Depends
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
 
 from app import embeddings, store, spaces as sp, config, extractors, db
 from app.auth import get_current_user, CurrentUser
@@ -147,14 +147,14 @@ async def search(
     q: str = Query(..., description="Search query"),
     k: int = Query(5, ge=1, le=500),
     full: bool = Query(False),
-    mode: str = Query("semantic", description="Search mode: 'semantic' or 'regex'"),
+    mode: Literal["semantic", "regex"] = Query("semantic", description="Search mode: 'semantic' or 'regex'"),
     user: CurrentUser = Depends(get_current_user),
 ):
     assert_space_access(space, user)
 
     if mode == "regex":
         try:
-            results = store.regex_search(space, q, username=user.username)
+            results = store.regex_search(space, q, k=k, username=user.username)
         except ValueError as e:
             raise HTTPException(400, str(e))
     else:

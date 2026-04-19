@@ -122,8 +122,9 @@ GET /collections/{name}/search?q=...&k=5&full=false
 
 | Param | Default | Description |
 |---|---|---|
-| `q` | required | Natural language query |
-| `k` | `5` | Number of results (1–50) |
+| `q` | required | Search query (regex pattern when `mode=regex`) |
+| `k` | `5` | Number of results (1–500) |
+| `mode` | `semantic` | Search mode: `semantic` or `regex` |
 | `full` | `false` | Include full document text alongside each chunk |
 
 ### Documents
@@ -143,8 +144,9 @@ GET /spaces/{space}/search?q=...&k=5&full=false
 
 | Param | Default | Description |
 |---|---|---|
-| `q` | required | Natural language query |
-| `k` | `5` | Number of results (1–50) |
+| `q` | required | Search query (regex pattern when `mode=regex`) |
+| `k` | `5` | Number of results (1–500) |
+| `mode` | `semantic` | Search mode: `semantic` or `regex` |
 | `full` | `false` | Include full document text alongside each chunk |
 
 ### Other
