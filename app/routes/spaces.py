@@ -1,7 +1,7 @@
 import re
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Depends
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
 
 from app import embeddings, store, spaces as sp, config, extractors, db
 from app.auth import get_current_user, CurrentUser
@@ -145,18 +145,24 @@ def delete_document(space: str, doc_id: str, user: CurrentUser = Depends(get_cur
 async def search(
     space: str,
     q: str = Query(..., description="Search query"),
-    k: int = Query(5, ge=1, le=50),
+    k: int = Query(5, ge=1, le=500),
     full: bool = Query(False),
+    mode: Literal["semantic", "regex"] = Query("semantic", description="Search mode: 'semantic' or 'regex'"),
     user: CurrentUser = Depends(get_current_user),
 ):
     assert_space_access(space, user)
 
-    try:
-        vector = await embeddings.embed(q)
-    except Exception as e:
-        raise HTTPException(502, f"Ollama embedding failed: {e}")
-
-    results = store.search(space, vector, k=k, username=user.username)
+    if mode == "regex":
+        try:
+            results = store.regex_search(space, q, k=k, username=user.username)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    else:
+        try:
+            vector = await embeddings.embed(q)
+        except Exception as e:
+            raise HTTPException(502, f"Ollama embedding failed: {e}")
+        results = store.search(space, vector, k=k, username=user.username)
 
     if full:
         for r in results:

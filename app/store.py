@@ -1,3 +1,4 @@
+import re
 import chromadb
 import os
 
@@ -41,6 +42,28 @@ def search(space: str, query_embedding: list[float], k: int = 5, username: str =
             "score": round(1 - results["distances"][0][i], 4),
             "metadata": results["metadatas"][0][i],
         })
+    return out
+
+
+def regex_search(space: str, pattern: str, k: int = 5, username: str = GUEST_USER) -> list[dict]:
+    if len(pattern) > 500:
+        raise ValueError("Regex pattern exceeds maximum length of 500 characters")
+    col = get_or_create_collection(space, username)
+    all_docs = col.get(include=["documents", "metadatas"])
+    try:
+        re_pat = re.compile(pattern, re.IGNORECASE)
+    except re.error as e:
+        raise ValueError(f"Invalid regex: {e}")
+
+    out, seen = [], set()
+    for chunk_id, text, meta in zip(all_docs["ids"], all_docs["documents"], all_docs["metadatas"]):
+        if len(out) >= k:
+            break
+        if re_pat.search(text):
+            doc_id = meta.get("doc_id")
+            if doc_id not in seen:
+                seen.add(doc_id)
+                out.append({"chunk_id": chunk_id, "doc_id": doc_id, "text": text, "score": 1.0, "metadata": meta})
     return out
 
 

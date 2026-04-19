@@ -20,6 +20,7 @@ Locus pairs with any [Ollama](https://ollama.com) instance for local embeddings,
 - **PDF extraction** — text layer extracted via pypdf
 - **Image OCR** — text extracted from images via Tesseract
 - **Audio transcription** — speech-to-text via Whisper (runs locally)
+- **Collections** — group spaces and search across all of them with a single query
 - **Optional auth** — per-user login, API keys, and admin controls (disabled by default)
 - **Web UI** — dark-themed single-page interface served at `/`
 - **Curl-friendly** — every operation is a plain HTTP call, no SDK required
@@ -104,6 +105,28 @@ GET    /spaces              List all dataspaces
 DELETE /spaces/{space}      Delete a space and all its data
 ```
 
+### Collections
+
+```
+POST   /collections                           Create a new collection
+GET    /collections                           List all collections
+GET    /collections/{name}                    Get collection details (member spaces)
+DELETE /collections/{name}                    Delete a collection
+POST   /collections/{name}/spaces/{space}     Add a space to a collection
+DELETE /collections/{name}/spaces/{space}     Remove a space from a collection
+```
+
+```
+GET /collections/{name}/search?q=...&k=5&full=false
+```
+
+| Param | Default | Description |
+|---|---|---|
+| `q` | required | Search query (regex pattern when `mode=regex`) |
+| `k` | `5` | Number of results (1–500) |
+| `mode` | `semantic` | Search mode: `semantic` or `regex` |
+| `full` | `false` | Include full document text alongside each chunk |
+
 ### Documents
 
 ```
@@ -121,8 +144,9 @@ GET /spaces/{space}/search?q=...&k=5&full=false
 
 | Param | Default | Description |
 |---|---|---|
-| `q` | required | Natural language query |
-| `k` | `5` | Number of results (1–50) |
+| `q` | required | Search query (regex pattern when `mode=regex`) |
+| `k` | `5` | Number of results (1–500) |
+| `mode` | `semantic` | Search mode: `semantic` or `regex` |
 | `full` | `false` | Include full document text alongside each chunk |
 
 ### Other
@@ -165,6 +189,16 @@ curl -s $BASE/spaces | jq
 
 # Delete a space
 curl -s -X DELETE $BASE/spaces/research | jq
+
+# Create a collection and add spaces to it
+curl -s -X POST $BASE/collections \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "science"}' | jq
+
+curl -s -X POST $BASE/collections/science/spaces/research | jq
+
+# Search across all spaces in the collection
+curl -s "$BASE/collections/science/search?q=cellular+energy&k=3" | jq
 ```
 
 ---
