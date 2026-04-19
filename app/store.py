@@ -44,6 +44,25 @@ def search(space: str, query_embedding: list[float], k: int = 5, username: str =
     return out
 
 
+def regex_search(space: str, pattern: str, username: str = GUEST_USER) -> list[dict]:
+    import re
+    col = get_or_create_collection(space, username)
+    all_docs = col.get(include=["documents", "metadatas"])
+    try:
+        re_pat = re.compile(pattern, re.IGNORECASE)
+    except re.error:
+        raise ValueError(f"Invalid regex: {pattern}")
+
+    out, seen = [], set()
+    for chunk_id, text, meta in zip(all_docs["ids"], all_docs["documents"], all_docs["metadatas"]):
+        if re_pat.search(text):
+            doc_id = meta.get("doc_id")
+            if doc_id not in seen:
+                seen.add(doc_id)
+                out.append({"chunk_id": chunk_id, "doc_id": doc_id, "text": text, "score": 1.0, "metadata": meta})
+    return out
+
+
 def delete_document(space: str, doc_id: str, username: str = GUEST_USER):
     col = get_or_create_collection(space, username)
     existing = col.get(where={"doc_id": {"$eq": doc_id}})

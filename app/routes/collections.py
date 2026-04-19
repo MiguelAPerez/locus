@@ -77,8 +77,9 @@ def remove_space_from_collection(name: str, space: str, user: CurrentUser = Depe
 async def search_collection(
     name: str,
     q: str = Query(..., description="Search query"),
-    k: int = Query(5, ge=1, le=50),
+    k: int = Query(5, ge=1, le=500),
     full: bool = Query(False),
+    mode: str = Query("semantic", description="Search mode: 'semantic' or 'regex'"),
     user: CurrentUser = Depends(get_current_user),
 ):
     if user.allowed_collections and name not in user.allowed_collections:
@@ -95,20 +96,31 @@ async def search_collection(
     if not member_spaces:
         raise HTTPException(400, "Collection has no valid spaces to search")
 
-    try:
-        vector = await embeddings.embed(q)
-    except Exception as e:
-        raise HTTPException(502, f"Ollama embedding failed: {e}")
+    if mode == "regex":
+        merged = []
+        for space_name in member_spaces:
+            try:
+                results = store.regex_search(space_name, q, username=user.username)
+                for r in results:
+                    r["space"] = space_name
+                merged.extend(results)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+    else:
+        try:
+            vector = await embeddings.embed(q)
+        except Exception as e:
+            raise HTTPException(502, f"Ollama embedding failed: {e}")
 
-    merged = []
-    for space_name in member_spaces:
-        results = store.search(space_name, vector, k=k, username=user.username)
-        for r in results:
-            r["space"] = space_name
-        merged.extend(results)
+        merged = []
+        for space_name in member_spaces:
+            results = store.search(space_name, vector, k=k, username=user.username)
+            for r in results:
+                r["space"] = space_name
+            merged.extend(results)
 
-    merged.sort(key=lambda r: r["score"], reverse=True)
-    merged = merged[:k]
+        merged.sort(key=lambda r: r["score"], reverse=True)
+        merged = merged[:k]
 
     if full:
         for r in merged:
