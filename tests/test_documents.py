@@ -65,3 +65,45 @@ def test_delete_document(client, space, mock_embeddings):
     r = client.delete(f"/spaces/{space}/documents/{doc_id}")
     assert r.status_code == 200
     assert r.json()["status"] == "deleted"
+
+
+def test_bulk_ingest_files(client, space, mock_embeddings):
+    r = client.post(
+        f"/spaces/{space}/documents/bulk",
+        files=[
+            ("files", ("a.txt", io.BytesIO(b"Content A"), "text/plain")),
+            ("files", ("b.txt", io.BytesIO(b"Content B"), "text/plain")),
+        ],
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["succeeded"] == 2
+    assert body["failed"] == 0
+    assert len(body["results"]) == 2
+
+
+def test_bulk_ingest_partial_failure(client, space, mock_embeddings):
+    r = client.post(
+        f"/spaces/{space}/documents/bulk",
+        files=[
+            ("files", ("good.txt", io.BytesIO(b"Good content"), "text/plain")),
+            ("files", ("empty.txt", io.BytesIO(b""), "text/plain")),
+        ],
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["succeeded"] == 1
+    assert body["failed"] == 1
+
+
+def test_bulk_ingest_no_files(client, space):
+    r = client.post(f"/spaces/{space}/documents/bulk", data={})
+    assert r.status_code == 422
+
+
+def test_bulk_ingest_unknown_space(client, mock_embeddings):
+    r = client.post(
+        "/spaces/ghost/documents/bulk",
+        files=[("files", ("a.txt", io.BytesIO(b"hello"), "text/plain"))],
+    )
+    assert r.status_code == 404

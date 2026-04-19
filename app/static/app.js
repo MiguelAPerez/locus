@@ -527,9 +527,9 @@ function renderSpace() {
           <input type="text" id="ingestSource" placeholder="source label (optional)" class="flex-1 bg-bg border border-border rounded px-2.5 py-1.5 text-text text-[0.8rem] outline-none focus:border-accent" />
           <button class="${BTN_PRIMARY}" onclick="doIngest()">Ingest</button>
         </div>
-        <div class="text-muted text-xs">or upload a file:</div>
+        <div class="text-muted text-xs">or upload file(s):</div>
         <div class="flex gap-2 items-center">
-          <input type="file" id="ingestFile" accept=".txt,.md,.markdown,.csv,.json,.pdf,.png,.jpg,.jpeg,.gif,.webp,.tiff,.bmp,.mp3,.wav,.ogg,.m4a,.flac,.webm,text/*,application/pdf,image/*,audio/*" class="flex-1 text-[0.8rem] text-muted" />
+          <input type="file" id="ingestFile" multiple accept=".txt,.md,.markdown,.csv,.json,.pdf,.png,.jpg,.jpeg,.gif,.webp,.tiff,.bmp,.mp3,.wav,.ogg,.m4a,.flac,.webm,text/*,application/pdf,image/*,audio/*" class="flex-1 text-[0.8rem] text-muted" />
           <button class="${BTN_PRIMARY}" onclick="doUpload()">Upload</button>
         </div>
         <div id="ingestStatus"></div>
@@ -581,14 +581,38 @@ async function doIngest() {
 }
 
 async function doUpload() {
-  const file = document.getElementById('ingestFile').files[0];
-  if (!file) return;
-  const fd = new FormData();
-  fd.append('file', file);
-  const ext = file.name.split('.').pop().toLowerCase();
-  const hints = { pdf: 'extracting PDF text', mp3: 'transcribing audio', wav: 'transcribing audio', ogg: 'transcribing audio', m4a: 'transcribing audio', flac: 'transcribing audio', webm: 'transcribing audio' };
-  await submitIngest(fd, hints[ext] || null);
+  const files = Array.from(document.getElementById('ingestFile').files);
+  if (!files.length) return;
+  const source = document.getElementById('ingestSource').value.trim();
+  if (files.length === 1) {
+    const fd = new FormData();
+    fd.append('file', files[0]);
+    if (source) fd.append('source', source);
+    const ext = files[0].name.split('.').pop().toLowerCase();
+    const hints = { pdf: 'extracting PDF text', mp3: 'transcribing audio', wav: 'transcribing audio', ogg: 'transcribing audio', m4a: 'transcribing audio', flac: 'transcribing audio', webm: 'transcribing audio' };
+    await submitIngest(fd, hints[ext] || null);
+  } else {
+    await submitBulkUpload(files, source);
+  }
   document.getElementById('ingestFile').value = '';
+}
+
+async function submitBulkUpload(files, source) {
+  const status = document.getElementById('ingestStatus');
+  status.innerHTML = `<span class="text-muted text-[0.8rem]">Uploading ${files.length} files\u2026</span>`;
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  if (source) fd.append('source', source);
+  try {
+    const r = await api('POST', `/spaces/${currentSpace}/documents/bulk`, fd);
+    const failLines = r.results.filter(x => x.error).map(x => `${esc(x.filename)}: ${esc(x.error)}`);
+    let html = `<span class="${STATUS_OK}">${r.succeeded}/${r.results.length} ingested</span>`;
+    if (failLines.length) html += `<ul class="text-danger text-[0.8rem] mt-1 list-disc pl-4">${failLines.map(l => `<li>${l}</li>`).join('')}</ul>`;
+    status.innerHTML = html;
+    loadDocs();
+  } catch (e) {
+    status.innerHTML = `<span class="${STATUS_ERR}">${esc(e.message)}</span>`;
+  }
 }
 
 async function submitIngest(fd, hint = null) {
