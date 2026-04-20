@@ -83,6 +83,9 @@ All configuration is via environment variables (or `.env`):
 | `EMBED_MODEL` | `nomic-embed-text` | Model name for embeddings |
 | `DATA_DIR` | `/data` | Root directory for spaces and assets |
 | `MAX_UPLOAD_MB` | `100` | Maximum file upload size in megabytes |
+| `MAX_BULK_FILES` | `50` | Maximum number of files per bulk upload request |
+| `CHUNK_SIZE` | `256` | Words per chunk when splitting documents for embedding |
+| `CHUNK_OVERLAP` | `32` | Overlapping words between consecutive chunks |
 | `LOCUS_PORT` | `8000` | Host port (Docker only) |
 
 Auth is disabled by default — all requests run as a built-in `guest` user. See [docs/auth.md](docs/auth.md) to enable per-user login, API keys, and admin controls.
@@ -131,10 +134,42 @@ GET /collections/{name}/search?q=...&k=5&full=false
 
 ```
 POST   /spaces/{space}/documents              Ingest text or a file
+POST   /spaces/{space}/documents/bulk         Bulk ingest multiple files
 GET    /spaces/{space}/documents              List documents in a space
 GET    /spaces/{space}/documents/{id}         Fetch full document text
 DELETE /spaces/{space}/documents/{id}         Delete a document
 ```
+
+#### Bulk ingest
+
+`POST /spaces/{space}/documents/bulk` — upload multiple files in a single request. All files are processed even if some fail; per-file status is returned for each.
+
+**Request** (`multipart/form-data`):
+
+| Field | Required | Description |
+|---|---|---|
+| `files` | yes | One or more files to ingest |
+| `source` | no | Metadata string applied to all files |
+
+**Response**:
+
+```json
+{
+  "space": "myspace",
+  "results": [
+    {"filename": "doc1.pdf", "doc_id": "abc123", "chunk_count": 12, "error": null},
+    {"filename": "empty.txt", "doc_id": null, "chunk_count": null, "error": "File is empty"}
+  ],
+  "succeeded": 1,
+  "failed": 1
+}
+```
+
+**Limits** (both configurable via env):
+- Max files per request: `MAX_BULK_FILES` (default **50**) — requests over this limit are rejected with HTTP 400
+- Max size per file: `MAX_UPLOAD_MB` (default **100 MB**) — oversized files are skipped with a per-file error in `results`
+
+All files within limits are always processed even if some fail; per-file status is in `results[].error`.
 
 ### Search
 
@@ -177,6 +212,12 @@ curl -s -X POST $BASE/spaces/research/documents \
 # Upload a file
 curl -s -X POST $BASE/spaces/research/documents \
   -F "file=@notes.txt" | jq
+
+# Bulk upload multiple files
+curl -s -X POST $BASE/spaces/research/documents/bulk \
+  -F "files=@doc1.pdf" \
+  -F "files=@doc2.txt" \
+  -F "source=batch-upload" | jq
 
 # Semantic search
 curl -s "$BASE/spaces/research/search?q=cellular+energy&k=3" | jq

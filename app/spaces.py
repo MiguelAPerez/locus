@@ -5,6 +5,8 @@ import shutil
 import glob
 import aiofiles
 
+from . import config
+
 DATA_DIR = os.getenv("DATA_DIR", "./data")
 GUEST_USER = "guest"
 
@@ -50,14 +52,18 @@ def new_doc_id() -> str:
     return uuid.uuid4().hex
 
 
-def chunk_text(text: str, size: int = 512, overlap: int = 64) -> list[str]:
-    words = text.split()
+def chunk_text(text: str, size: int | None = None, overlap: int | None = None) -> list[str]:
+    size = size if size is not None else config.get_chunk_size()
+    overlap = overlap if overlap is not None else config.get_chunk_overlap()
+    max_chunk_chars = config.get_max_chunk_chars()
+    max_word_chars = config.get_max_word_chars()
+    words = [w[:max_word_chars] for w in text.split()]
     chunks, i = [], 0
     while i < len(words):
         chunk = " ".join(words[i : i + size])
-        chunks.append(chunk)
+        chunks.append(chunk[:max_chunk_chars])
         i += size - overlap
-    return chunks or [text]
+    return chunks or [text[:max_chunk_chars]]
 
 
 async def save_document(space: str, doc_id: str, text: str, meta: dict, username: str = GUEST_USER):

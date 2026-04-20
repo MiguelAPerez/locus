@@ -149,12 +149,16 @@ async def bulk_ingest_documents(
     if not files:
         raise HTTPException(400, "Provide at least one file")
 
+    max_files = config.get_max_bulk_files()
+    if len(files) > max_files:
+        raise HTTPException(400, f"Too many files: limit is {max_files} per request")
+
     max_bytes = config.get_max_upload_bytes()
     results = []
 
     for file in files:
         try:
-            file_content = await file.read()
+            file_content = await file.read(max_bytes + 1)
             if not file_content:
                 results.append(BulkIngestItem(filename=file.filename or "", error="File is empty"))
                 continue
