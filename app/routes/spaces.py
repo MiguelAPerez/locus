@@ -165,7 +165,7 @@ async def bulk_ingest_documents(
             if len(file_content) > max_bytes:
                 results.append(BulkIngestItem(filename=file.filename or "", error=f"Exceeds {max_bytes // (1024*1024)} MB limit"))
                 continue
-            filename = file.filename
+            filename = file.filename or ""
             try:
                 text = await extractors.extract_text(file_content, filename, file.content_type or "")
             except ValueError as e:
@@ -180,15 +180,19 @@ async def bulk_ingest_documents(
 
             doc_id = sp.new_doc_id()
             chunks = sp.chunk_text(text)
-            vectors = await embeddings.embed_batch(chunks)
-            doc_type = extractors.doc_type(filename or "", file.content_type or "")
-            meta = {"doc_id": doc_id, "source": source or "manual", "filename": filename or "", "doc_type": doc_type}
+            try:
+                vectors = await embeddings.embed_batch(chunks)
+            except Exception as e:
+                results.append(BulkIngestItem(filename=filename, error=f"Embedding failed: {e}"))
+                continue
+            doc_type = extractors.doc_type(filename, file.content_type or "")
+            meta = {"doc_id": doc_id, "source": source or "manual", "filename": filename, "doc_type": doc_type}
             chunk_metas = [{**meta, "chunk_index": i} for i in range(len(chunks))]
             store.upsert(space, doc_id, chunks, vectors, chunk_metas, username=user.username)
             await sp.save_document(space, doc_id, text, meta, username=user.username)
             if doc_type != "text":
                 await sp.save_original_file(space, doc_id, file_content, filename, username=user.username)
-            results.append(BulkIngestItem(filename=filename or "", doc_id=doc_id, chunk_count=len(chunks)))
+            results.append(BulkIngestItem(filename=filename, doc_id=doc_id, chunk_count=len(chunks)))
         except Exception as e:
             results.append(BulkIngestItem(filename=file.filename or "", error=f"Unexpected error: {e}"))
 

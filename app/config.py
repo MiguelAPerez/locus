@@ -41,28 +41,32 @@ def get_max_upload_bytes() -> int:
 
 def get_chunk_size() -> int:
     try:
-        return int(os.getenv("CHUNK_SIZE", "256"))
+        value = int(os.getenv("CHUNK_SIZE", "256"))
+        return value if value >= 1 else 256
     except ValueError:
         return 256
 
 
 def get_chunk_overlap() -> int:
     try:
-        return int(os.getenv("CHUNK_OVERLAP", "32"))
+        value = int(os.getenv("CHUNK_OVERLAP", "32"))
+        return value if value >= 0 else 0
     except ValueError:
         return 32
 
 
 def get_max_chunk_chars() -> int:
     try:
-        return int(os.getenv("MAX_CHUNK_CHARS", "4000"))
+        value = int(os.getenv("MAX_CHUNK_CHARS", "4000"))
+        return value if value >= 1 else 4000
     except ValueError:
         return 4000
 
 
 def get_max_word_chars() -> int:
     try:
-        return int(os.getenv("MAX_WORD_CHARS", "200"))
+        value = int(os.getenv("MAX_WORD_CHARS", "200"))
+        return value if value >= 1 else 200
     except ValueError:
         return 200
 

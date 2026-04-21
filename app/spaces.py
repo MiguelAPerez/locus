@@ -58,11 +58,12 @@ def chunk_text(text: str, size: int | None = None, overlap: int | None = None) -
     max_chunk_chars = config.get_max_chunk_chars()
     max_word_chars = config.get_max_word_chars()
     words = [w[:max_word_chars] for w in text.split()]
+    step = max(1, size - overlap)
     chunks, i = [], 0
     while i < len(words):
         chunk = " ".join(words[i : i + size])
         chunks.append(chunk[:max_chunk_chars])
-        i += size - overlap
+        i += step
     return chunks or [text[:max_chunk_chars]]
 
 

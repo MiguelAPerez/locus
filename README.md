@@ -199,7 +199,7 @@ GET /           Web UI
 GET /docs       Auto-generated OpenAPI docs (FastAPI)
 ```
 
-> **Note:** For detailed examples calls using `curl` see [docs/README.md](docs/README.md).
+> **Note:** For detailed example calls using `curl` see [docs/README.md](docs/README.md).
 
 ---
 
