@@ -1,7 +1,7 @@
 import re
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Depends
 from pydantic import BaseModel
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from app import embeddings, store, spaces as sp, config, extractors, db
 from app.auth import get_current_user, CurrentUser
@@ -19,6 +19,20 @@ class IngestResponse(BaseModel):
     doc_id: str
     space: str
     chunk_count: int
+
+
+class BulkIngestItem(BaseModel):
+    filename: str
+    doc_id: Optional[str] = None
+    chunk_count: Optional[int] = None
+    error: Optional[str] = None
+
+
+class BulkIngestResponse(BaseModel):
+    space: str
+    results: list[BulkIngestItem]
+    succeeded: int
+    failed: int
 
 
 def assert_space_access(space: str, user: CurrentUser):
@@ -122,6 +136,69 @@ async def ingest_document(
         await sp.save_original_file(space, doc_id, file_content, filename, username=user.username)
 
     return IngestResponse(doc_id=doc_id, space=space, chunk_count=len(chunks))
+
+
+@router.post("/spaces/{space}/documents/bulk", status_code=200)
+async def bulk_ingest_documents(
+    space: str,
+    files: List[UploadFile] = File(...),
+    source: Optional[str] = Form(None),
+    user: CurrentUser = Depends(get_current_user),
+):
+    assert_space_access(space, user)
+    if not files:
+        raise HTTPException(400, "Provide at least one file")
+
+    max_files = config.get_max_bulk_files()
+    if len(files) > max_files:
+        raise HTTPException(400, f"Too many files: limit is {max_files} per request")
+
+    max_bytes = config.get_max_upload_bytes()
+    results = []
+
+    for file in files:
+        try:
+            file_content = await file.read(max_bytes + 1)
+            if not file_content:
+                results.append(BulkIngestItem(filename=file.filename or "", error="File is empty"))
+                continue
+            if len(file_content) > max_bytes:
+                results.append(BulkIngestItem(filename=file.filename or "", error=f"Exceeds {max_bytes // (1024*1024)} MB limit"))
+                continue
+            filename = file.filename or ""
+            try:
+                text = await extractors.extract_text(file_content, filename, file.content_type or "")
+            except ValueError as e:
+                results.append(BulkIngestItem(filename=filename or "", error=str(e)))
+                continue
+            except Exception as e:
+                results.append(BulkIngestItem(filename=filename or "", error=f"Extraction failed: {e}"))
+                continue
+            if not text:
+                results.append(BulkIngestItem(filename=filename or "", error="No text could be extracted"))
+                continue
+
+            doc_id = sp.new_doc_id()
+            chunks = sp.chunk_text(text)
+            try:
+                vectors = await embeddings.embed_batch(chunks)
+            except Exception as e:
+                results.append(BulkIngestItem(filename=filename, error=f"Embedding failed: {e}"))
+                continue
+            doc_type = extractors.doc_type(filename, file.content_type or "")
+            meta = {"doc_id": doc_id, "source": source or "manual", "filename": filename, "doc_type": doc_type}
+            chunk_metas = [{**meta, "chunk_index": i} for i in range(len(chunks))]
+            store.upsert(space, doc_id, chunks, vectors, chunk_metas, username=user.username)
+            await sp.save_document(space, doc_id, text, meta, username=user.username)
+            if doc_type != "text":
+                await sp.save_original_file(space, doc_id, file_content, filename, username=user.username)
+            results.append(BulkIngestItem(filename=filename, doc_id=doc_id, chunk_count=len(chunks)))
+        except Exception as e:
+            results.append(BulkIngestItem(filename=file.filename or "", error=f"Unexpected error: {e}"))
+
+    succeeded = sum(1 for r in results if r.error is None)
+    failed = len(results) - succeeded
+    return BulkIngestResponse(space=space, results=results, succeeded=succeeded, failed=failed)
 
 
 @router.get("/spaces/{space}/documents/{doc_id}")

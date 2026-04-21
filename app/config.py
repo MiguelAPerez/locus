@@ -39,6 +39,46 @@ def get_max_upload_bytes() -> int:
         return 100 * 1024 * 1024
 
 
+def get_chunk_size() -> int:
+    try:
+        value = int(os.getenv("CHUNK_SIZE", "256"))
+        return value if value >= 1 else 256
+    except ValueError:
+        return 256
+
+
+def get_chunk_overlap() -> int:
+    try:
+        value = int(os.getenv("CHUNK_OVERLAP", "32"))
+        return value if value >= 0 else 0
+    except ValueError:
+        return 32
+
+
+def get_max_chunk_chars() -> int:
+    try:
+        value = int(os.getenv("MAX_CHUNK_CHARS", "4000"))
+        return value if value >= 1 else 4000
+    except ValueError:
+        return 4000
+
+
+def get_max_word_chars() -> int:
+    try:
+        value = int(os.getenv("MAX_WORD_CHARS", "200"))
+        return value if value >= 1 else 200
+    except ValueError:
+        return 200
+
+
+def get_max_bulk_files() -> int:
+    val = os.getenv("MAX_BULK_FILES", "50")
+    try:
+        return int(val)
+    except ValueError:
+        return 50
+
+
 def get_settings() -> dict:
     saved = _load_saved()
     return {

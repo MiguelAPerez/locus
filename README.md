@@ -59,17 +59,7 @@ docker compose up --build -d
 
 Open [http://localhost:8000](http://localhost:8000) for the UI, or jump straight to the API.
 
-### Local (dev)
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-export OLLAMA_URL=http://localhost:11434
-export DATA_DIR=./data
-
-uvicorn app.main:app --reload
-```
+> **Note:** For local development, view more [here](docs/README.md).
 
 ---
 
@@ -83,15 +73,34 @@ All configuration is via environment variables (or `.env`):
 | `EMBED_MODEL` | `nomic-embed-text` | Model name for embeddings |
 | `DATA_DIR` | `/data` | Root directory for spaces and assets |
 | `MAX_UPLOAD_MB` | `100` | Maximum file upload size in megabytes |
+| `MAX_BULK_FILES` | `50` | Maximum number of files per bulk upload request |
+| `CHUNK_SIZE` | `256` | Words per chunk when splitting documents for embedding |
+| `CHUNK_OVERLAP` | `32` | Overlapping words between consecutive chunks |
+| `MAX_CHUNK_CHARS` | `4000` | Hard character cap per chunk (guards against token limit overflows) |
+| `MAX_WORD_CHARS` | `200` | Truncates individual tokens before chunking (handles minified code, base64, etc.) |
 | `LOCUS_PORT` | `8000` | Host port (Docker only) |
 
 Auth is disabled by default — all requests run as a built-in `guest` user. See [docs/auth.md](docs/auth.md) to enable per-user login, API keys, and admin controls.
 
-Make sure the embedding model is already pulled in your Ollama instance:
+### Recommended configuration
+
+The default `nomic-embed-text` model works well for prose but has an 8K token context window that can cause failures on numeric-heavy files (JSON weight arrays, minified code). For better coverage:
+
+| Model | Size | Context | Best for |
+|---|---|---|---|
+| `qwen3-embedding:4b` | 2.5 GB | 40K tokens | Best balance — recommended |
+| `qwen3-embedding:0.6b` | 639 MB | 32K tokens | Lightweight, good for smaller machines |
+| `nomic-embed-text` | ~274 MB | 8K tokens | Default, fine for prose-only workloads |
+
+**For `qwen3-embedding:4b` or `:0.6b`, use larger chunks** to take advantage of the wider context window:
 
 ```bash
-ollama pull nomic-embed-text
+EMBED_MODEL=qwen3-embedding:4b
+CHUNK_SIZE=512
+MAX_CHUNK_CHARS=8000
 ```
+
+> **Note:** Changing `EMBED_MODEL` requires wiping and rebuilding all existing embeddings — vectors from different models are incompatible. Delete the space and re-sync all documents to rebuild with the new model.
 
 ---
 
@@ -99,7 +108,7 @@ ollama pull nomic-embed-text
 
 ### Spaces
 
-```
+```markdown
 POST   /spaces              Create a new dataspace
 GET    /spaces              List all dataspaces
 DELETE /spaces/{space}      Delete a space and all its data
@@ -107,7 +116,7 @@ DELETE /spaces/{space}      Delete a space and all its data
 
 ### Collections
 
-```
+```markdown
 POST   /collections                           Create a new collection
 GET    /collections                           List all collections
 GET    /collections/{name}                    Get collection details (member spaces)
@@ -129,16 +138,49 @@ GET /collections/{name}/search?q=...&k=5&full=false
 
 ### Documents
 
-```
+```markdown
 POST   /spaces/{space}/documents              Ingest text or a file
+POST   /spaces/{space}/documents/bulk         Bulk ingest multiple files
 GET    /spaces/{space}/documents              List documents in a space
 GET    /spaces/{space}/documents/{id}         Fetch full document text
 DELETE /spaces/{space}/documents/{id}         Delete a document
 ```
 
+#### Bulk ingest
+
+`POST /spaces/{space}/documents/bulk` — upload multiple files in a single request. All files are processed even if some fail; per-file status is returned for each.
+
+**Request** (`multipart/form-data`):
+
+| Field | Required | Description |
+|---|---|---|
+| `files` | yes | One or more files to ingest |
+| `source` | no | Metadata string applied to all files |
+
+**Response**:
+
+```json
+{
+  "space": "myspace",
+  "results": [
+    {"filename": "doc1.pdf", "doc_id": "abc123", "chunk_count": 12, "error": null},
+    {"filename": "empty.txt", "doc_id": null, "chunk_count": null, "error": "File is empty"}
+  ],
+  "succeeded": 1,
+  "failed": 1
+}
+```
+
+**Limits** (both configurable via env):
+
+- Max files per request: `MAX_BULK_FILES` (default **50**) — requests over this limit are rejected with HTTP 400
+- Max size per file: `MAX_UPLOAD_MB` (default **100 MB**) — oversized files are skipped with a per-file error in `results`
+
+All files within limits are always processed even if some fail; per-file status is in `results[].error`.
+
 ### Search
 
-```
+```markdown
 GET /spaces/{space}/search?q=...&k=5&full=false
 ```
 
@@ -151,112 +193,19 @@ GET /spaces/{space}/search?q=...&k=5&full=false
 
 ### Other
 
-```
+```markdown
 GET /health     Service health check
 GET /           Web UI
 GET /docs       Auto-generated OpenAPI docs (FastAPI)
 ```
 
----
-
-## Example curl session
-
-```bash
-BASE=http://localhost:8000
-
-# Create a space
-curl -s -X POST $BASE/spaces \
-  -H 'Content-Type: application/json' \
-  -d '{"name": "research"}' | jq
-
-# Ingest text
-curl -s -X POST $BASE/spaces/research/documents \
-  -F "text=The mitochondria is the powerhouse of the cell." \
-  -F "source=biology-101" | jq
-
-# Upload a file
-curl -s -X POST $BASE/spaces/research/documents \
-  -F "file=@notes.txt" | jq
-
-# Semantic search
-curl -s "$BASE/spaces/research/search?q=cellular+energy&k=3" | jq
-
-# Fetch full document
-curl -s "$BASE/spaces/research/documents/{doc_id}" | jq
-
-# List spaces
-curl -s $BASE/spaces | jq
-
-# Delete a space
-curl -s -X DELETE $BASE/spaces/research | jq
-
-# Create a collection and add spaces to it
-curl -s -X POST $BASE/collections \
-  -H 'Content-Type: application/json' \
-  -d '{"name": "science"}' | jq
-
-curl -s -X POST $BASE/collections/science/spaces/research | jq
-
-# Search across all spaces in the collection
-curl -s "$BASE/collections/science/search?q=cellular+energy&k=3" | jq
-```
+> **Note:** For detailed example calls using `curl` see [docs/README.md](docs/README.md).
 
 ---
 
-## Development
+## Contributing
 
-### Running tests
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
-pytest tests/ -v --cov=app
-```
-
-### Releases
-
-Releases are driven by [Commitizen](https://commitizen-tools.github.io/commitizen/) using conventional commits.
-
-```bash
-# bump version, update CHANGELOG, create tag
-cz bump
-
-# push the tag to trigger the release workflow
-git push origin main --tags
-```
-
-The release workflow builds and pushes the Docker image to `ghcr.io/miguelaperez/locus:<tag>` and `ghcr.io/miguelaperez/locus:latest`.
-
----
-
-## Project structure
-
-```
-.
-├── app/
-│   ├── main.py          # FastAPI app and all routes
-│   ├── embeddings.py    # Ollama embedding client
-│   ├── extractors.py    # PDF, image OCR, and audio transcription
-│   ├── store.py         # ChromaDB vector store wrapper
-│   ├── spaces.py        # File I/O, chunking, space management
-│   └── static/
-│       └── index.html   # Web UI
-├── tests/               # pytest test suite
-├── .github/workflows/
-│   ├── ci.yml           # Run tests on push / PR
-│   └── release.yml      # Build & push Docker image on tag
-├── docs/
-│   ├── architecture.md  # System design and data flow
-│   └── auth.md          # Auth setup and API reference
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml       # Commitizen config & version
-├── requirements.txt
-├── requirements-dev.txt
-└── .env.example
-```
-
----
+We're currently in early development and not accepting external contributions, but if you're interested in contributing or have ideas to share, please open an issue or reach out!
 
 ## License
 
